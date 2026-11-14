@@ -23,6 +23,8 @@ Suggested case categories:
 
 Split cases into development, validation and held-out regression sets. Track dataset version and seed; avoid tuning directly on held-out examples.
 
+Phase 0 artifacts: 20 authored golden business scenarios in `evals/datasets/business-scenarios.json`, with fixture references, input conditions and expected outcomes. They are acceptance specifications, not measured results. Four consistency checks validate the catalog/data and current calculation subset. No held-out agent benchmark exists yet; establish independent development/validation/held-out data before agent tuning.
+
 ## Metrics
 | Metric | Definition | Collection |
 |---|---|---|

@@ -52,6 +52,8 @@ Implement bounded retries, timeouts, cancellation, idempotency and safe resumpti
 
 Alternate terminal states: `FAILED`, `CANCELLED`, `PARTIALLY_COMPLETED`. Reject invalid transitions.
 
+Phase 0 refinement: also include `WAITING_DOCUMENT`, `WAITING_CLARIFICATION`, `RECONCILING`, `CANCEL_REQUESTED` and terminal `REJECTED`. The guarded semantics, expiry defaults and role matrix are specified in [PHASE_0_SPEC.md](PHASE_0_SPEC.md); the simple path above is illustrative only.
+
 ## Acceptance criteria
 1. A manager can submit a goal and inspect a validated plan before execution.
 2. All findings link to a source record or document excerpt; unsupported conclusions are flagged.

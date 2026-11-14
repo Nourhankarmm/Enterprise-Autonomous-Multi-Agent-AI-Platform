@@ -1,0 +1,11 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>مركز عمليات المشتريات</title><link rel="stylesheet" href="/assets/style.css"><script src="/assets/app.js" defer></script></head>
+<body><header><span class="brand">◈ منصة العمليات</span><span class="tag">بيانات تجريبية</span></header>
+<main><section class="intro"><p class="eyebrow">مساحة عمل المشتريات</p><h1>طلباتك، في مكان واحد.</h1><p>راجع التوريدات والتأخير داخل شركتك، مع مرجع واضح لكل نتيجة.</p></section>
+<section id="login-panel" class="card"><h2>تسجيل الدخول</h2><p>استخدم الحساب المحلي الذي أنشأه مسؤول النظام.</p><form id="login-form"><label for="username">اسم المستخدم</label><input id="username" autocomplete="username" required maxlength="200"><label for="password">كلمة المرور</label><input id="password" type="password" autocomplete="current-password" required maxlength="1024"><button id="login-button">دخول مساحة العمل</button></form></section>
+<p id="message" role="status" aria-live="polite"></p>
+<section id="workspace" hidden><div class="toolbar"><div><h2>نظرة على التوريدات</h2><p id="identity"></p></div><button id="logout" class="secondary">تسجيل الخروج</button></div>
+<div class="controls"><label for="as-of">تاريخ التحليل</label><input id="as-of" type="date" required><button id="refresh">تحديث التحليل</button></div>
+<div id="metrics" class="metrics"></div><div class="card table-wrap"><table><caption>طلبات الشراء الخاصة بشركتك</caption><thead><tr><th>الطلب</th><th>المورد</th><th>المشروع</th><th>المتبقي</th><th>التأخير / يوم</th><th>بعد السماح</th><th>الأولوية</th></tr></thead><tbody id="rows"></tbody></table><p id="empty" hidden>لا توجد طلبات للعرض.</p></div><p class="note">الأولوية مؤشر متابعة مبسط. نقص العقد يعني أن الأولوية التعاقدية غير معلومة.</p></section>
+</main><footer>النسخة التجريبية · المرحلة الأولى</footer></body></html>

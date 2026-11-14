@@ -1,0 +1,13 @@
+# Implementation baseline — 14 November 2026
+
+Phase 0 supplies the synthetic rules, fixtures, threat model and business acceptance specifications. Phase 1 now supplies the authenticated tenant-scoped application foundation; see [Phase 1 review](PHASE_1_REVIEW.md) for evidence and remaining limits.
+
+Implemented: FastAPI, relational PostgreSQL/optional SQLite adapter, Alembic migrations, read-only mock ERP, explicit local user provisioning and one-hour revocable sessions, manager/analyst procurement reads, tenant-scoped durable audit events, Arabic web shell, Docker Compose and CI definitions.
+
+Authentication is a local **auth stub**, not OIDC/SSO. Passwords are salted PBKDF2-SHA256; only hashes of bearer sessions are stored. Tenant and current role come from server-side user records. Company headers cannot override identity. Composite foreign keys enforce tenant ownership of supplier/project relations. PostgreSQL RLS is not implemented.
+
+Business rules remain deterministic: explicit ISO analysis date; calendar-day lateness for outstanding quantities; grace subtraction clamped to zero; missing contract gives unknown contractual risk; HIGH/MEDIUM/LOW prioritization based on grace and material criticality. No financial penalties or project delay forecasting.
+
+Pending: agents/planning/tools, PDF ingestion and ACL retrieval, amendments/conflict handling, project exposure analysis, Temporal lifecycle, independent approvals, action hashes, idempotency/reconciliation, outbound sending, full operations UI, production identity/security/deployment hardening.
+
+The 20 business scenarios remain future behavior specifications, not 20 passing E2E workflows. Foundation verification comprises 23 unittest methods including 15 arithmetic subcases, plus nine Phase 1 methods on real PostgreSQL. Docker and CI are authored but cannot be claimed remotely executed here. Historical Phase 0 review statements about Phase 1 being incomplete describe the earlier baseline and are superseded by the Phase 1 review.
