@@ -33,7 +33,7 @@ Solo developer; part-time or full-time pace changes duration. Estimate: **21Ã¢â‚
 
 ## Milestone checklist
 - [x] M0: Synthetic dataset and golden case specifications (see PHASE_0_REVIEW.md; future E2E behavior not yet implemented)
-- [x] M1: Tenant-scoped API and mock ERP with local auth stub (see PHASE_1_REVIEW.md; Docker/remote CI execution pending)
+- [x] M1: Tenant-scoped API and mock ERP with local auth stub (see PHASE_1_REVIEW.md; Docker Compose and GitHub CI verified)
 - [ ] M2: Validated agent plans and execution traces
 - [ ] M3: Citation-backed procurement analysis
 - [ ] M4: Durable approvals and safe side effects

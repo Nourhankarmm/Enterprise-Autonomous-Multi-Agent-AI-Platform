@@ -13,8 +13,8 @@
 | Mock ERP | Read-only connector seeded idempotently from synthetic fixtures | Same supplier ID yields company-specific contracts; no external ERP access |
 | Web shell | Arabic RTL login, date-controlled assessment, metrics/table, error/empty states, logout | Browser login shows alpha's three orders, high-priority and missing-evidence counts; logout verified |
 | Durable events | Tenant-scoped event table and restricted read route; no raw credentials recorded | Events survive app recreation; tenant scope and redaction checked |
-| Compose | PostgreSQL 17 health -> migration -> seed -> non-root API; loopback API binding | Official Docker Compose CLI configuration validation passed; Docker Engine unavailable locally |
-| CI | SQLite suite, PostgreSQL service acceptance, JavaScript syntax, Compose config and image build | actionlint validation passed; includes fresh Compose boot and HTTP/restart acceptance; remote execution pending authenticated push |
+| Compose | PostgreSQL 17 health -> migration -> seed -> non-root API; loopback API binding | Official CLI validation and fresh PostgreSQL/Compose startup passed on GitHub Actions |
+| CI | SQLite suite, PostgreSQL service acceptance, JavaScript syntax, Compose config and image build | actionlint and GitHub-hosted execution passed, including fresh Compose boot and HTTP/restart acceptance |
 
 Exit gate achieved with the explicitly permitted **auth stub**: users can sign in and retrieve only their tenant's purchase orders. This is not an enterprise authentication or production-readiness claim.
 
@@ -37,7 +37,7 @@ SQLite remains an optional local/test adapter. PostgreSQL uses explicit migratio
 
 Legacy `.data/platform.db` is not destructively migrated. New local data uses `.data/phase1.db`; real data migration needs a reviewed import process. No production data is present.
 
-Container and CI definitions are reviewable artifacts. Docker is unavailable locally, so the Compose lifecycle/image has not been executed here; CI must confirm it when pushed. PostgreSQL testing above did not depend on Docker.
+Container and CI definitions are reviewable artifacts. Docker is unavailable on the local Windows host. The full image build, Compose lifecycle, HTTP acceptance and cleanup were executed successfully on the GitHub-hosted Linux runner. The earlier local PostgreSQL checks independently passed without Docker.
 
 
 ## Container/CI verification follow-up
@@ -45,3 +45,12 @@ Container and CI definitions are reviewable artifacts. Docker is unavailable loc
 The official standalone Docker Compose CLI validates `compose.yaml` successfully. `actionlint` validates the GitHub Actions workflow with no findings. These are configuration checks, not evidence of a running container.
 
 CI now boots the complete Compose stack from an empty volume and runs `scripts/compose_smoke.py`. It provisions random test-only accounts inside the disposable container, validates PostgreSQL readiness, tenant isolation, calculation results, audit/session persistence after restarting the API, and logout revocation. CI always collects container logs and removes only its own disposable stack/volumes. `API_BIND_PORT` allows its published loopback port to be isolated from the developer server.
+
+
+## Final exit evidence
+
+[GitHub Actions run 43552653640](https://github.com/Nourhankarmm/Enterprise-Autonomous-Multi-Agent-AI-Platform/actions/runs/43552653640) passed for implementation commit `6a35f0674a344a33c94d2601818b0b9363d060e0` on `codex/phase-one-foundation`.
+
+The Linux runner installed the locked dependencies on Python 3.12, passed all 23 local-database unittest methods and all nine PostgreSQL acceptance methods, checked JavaScript/Compose configuration, built and started a fresh container stack, passed HTTP tenant/login/assessment checks, restarted the API and verified persistent sessions/audit events, revoked sessions at logout, and removed its disposable volumes. The Phase 1 implementation and validation gates are complete with the agreed local auth stub.
+
+GitHub emitted non-failing runner/action runtime deprecation notices. These did not change the successful acceptance result. Production hardening and the deferred OIDC/Next.js choices described above remain outside this phase. The implementation is available on a separate branch; main is unchanged until review/merge.
