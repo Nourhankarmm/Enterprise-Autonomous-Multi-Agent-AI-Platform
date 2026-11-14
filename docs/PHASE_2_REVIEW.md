@@ -40,3 +40,11 @@ Execution is synchronous inside the API request. Database/task snapshots are per
 The wall-clock budget is checked at every task boundary. Database connections/queries have five-second limits; Python code is not forcibly killed mid-instruction. There are no external tool calls in this runtime. Successful predecessors are reused from their recorded snapshot; freshness revalidation for external actions is not applicable because no external action exists.
 
 Document lookup uses manually seeded synthetic terms only. PDF/RAG, document ACL retrieval, amendments/conflicts, project delay forecasting, sending/drafting email and real ERP writes remain outside this phase. WAITING_DOCUMENT is inspectable/cancellable; document upload/replanning from new evidence will be implemented in subsequent phases. Public traces contain task/status/budget metadata, not raw model chain of thought. LangSmith tracing is explicitly disabled for graph execution.
+
+
+## Opt-in live acceptance
+
+After starting the live server on port 8001, run `python scripts/live_planner_smoke.py --username demo` and enter only the local login password at its hidden prompt. The test makes one model call through the server, verifies a supplier-S1-only plan before confirming it, checks the expected PO-A1 evidence/result, logs out, and writes non-secret evidence to `.data/live-planner-verification.json`. The API key stays in the server process. This test is deliberately excluded from CI and has not been claimed as passed.
+
+
+Final core/hardening verification also passed on [CI run 43597574184](https://github.com/Nourhankarmm/Enterprise-Autonomous-Multi-Agent-AI-Platform/actions/runs/43597574184): 50 methods in the complete suite, nine Phase 1 PostgreSQL methods, 27 Phase 2 PostgreSQL methods, and the reviewed LangGraph operation through the fresh Compose stack. Live paid-model acceptance remains separate and pending.

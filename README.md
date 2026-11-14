@@ -86,6 +86,14 @@ For a real model-generated plan, choose a model available to your OpenAI account
 
 Replace `MODEL_ID` with your model ID. The helper prompts for the API key without echoing or saving it, then opens a separate local server at http://127.0.0.1:8001. Use the existing local account. Only the goal, analysis date, instructions and plan schema are submitted to OpenAI. Planner calls can incur API charges. Do not paste keys into goals or commit them.
 
+To verify a real model-generated supplier-scoped operation without exposing keys, run in a second terminal:
+
+```powershell
+.\.venv\Scripts\python.exe scripts/live_planner_smoke.py --username demo
+```
+
+The hidden prompt asks for your **local account password**, not the OpenAI key. This opt-in test makes one live planner call through the configured server, checks the S1 filter and known fixture results, revokes its login session, and saves credential-free evidence to `.data/live-planner-verification.json` on success.
+
 Alternatively set server environment variables `PLANNER_PROVIDER=openai`, `OPENAI_MODEL` and `OPENAI_API_KEY` before starting uvicorn or Compose. Demo remains the default; live errors never silently fall back. No live API verification is claimed until an actual model-generated operation succeeds. The SDK serialization/parser contract is tested offline.
 
 Operations are scoped to their requesting user and company. Plans are hash/version-bound, require confirmation and permit at most two revisions. The read-only runner persists every task result and attempt. A short lease prevents concurrent execution; explicit resume reuses successful snapshots while honoring the original 30-second deadline and attempt budgets. This is synchronous API execution, not a Temporal/background workflow engine.
