@@ -24,14 +24,14 @@ The v1 plan shape is intentionally narrow: exactly one of each of the five appro
 
 ## Verification
 
-- 49 unittest methods: existing 23 plus 26 Phase 2 methods. The original 15 arithmetic subcases remain included.
+- 50 unittest methods: existing 23 plus 27 Phase 2 methods. The original 15 arithmetic subcases remain included.
 - Phase 2 tests include malicious tool/tenant/budget proposals, DAG errors, exact confirmation/revision/replay controls, tenant and owner isolation, transient/permanent errors, concurrent confirmation, timeout, cancellation during a read, account revocation, tampered findings, trace pagination and crash/resume without repeating successful tasks.
 - Real OpenAI SDK request serialization and structured response parsing are tested using an in-memory HTTP transport. No test uses a real API key or makes a paid model request.
 - Migration tests adopt only the exact known Phase 1 SQLite bootstrap schema while preserving users/hashes, and refuse unknown schema differences. The existing local demo database was upgraded without altering accounts.
 - Browser: sign in, create the sample plan with zero attempts, confirm, observe all five successful tasks, evidence-linked findings and missing PO-A3 contract, then sign out. Snapshot: `.data/phase2-result.jpg`.
 - CI includes the Phase 2 suite against PostgreSQL and full Compose acceptance. The HTTP container check creates/confirms a plan and verifies persisted task/results after API restart.
 
-Live-model acceptance remains pending local OPENAI_API_KEY/OPENAI_MODEL configuration and an actual successful model-generated operation. Offline and mocked provider tests do not establish live provider availability or model reasoning quality. CI results are recorded when the branch run completes.
+Live-model acceptance remains pending local OPENAI_API_KEY/OPENAI_MODEL configuration and an actual successful model-generated operation. Offline and mocked provider tests do not establish live provider availability or model reasoning quality. The initial implementation CI run passed on GitHub, including PostgreSQL and the extended Compose smoke check: https://github.com/Nourhankarmm/Enterprise-Autonomous-Multi-Agent-AI-Platform/actions/runs/43597341673. Later small hardening/documentation changes are covered by the current branch checks.
 
 ## Runtime and security limits
 

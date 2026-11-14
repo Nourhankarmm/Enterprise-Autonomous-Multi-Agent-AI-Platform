@@ -45,7 +45,7 @@ For an existing PostgreSQL server set `DATABASE_URL=postgresql+psycopg://USER:PA
 node --check web/app.js
 ```
 
-Expected: **49 unittest methods**, including 15 arithmetic subcases. To repeat Phase 1 acceptance against a dedicated, empty PostgreSQL test database:
+Expected: **50 unittest methods**, including 15 arithmetic subcases. To repeat Phase 1 acceptance against a dedicated, empty PostgreSQL test database:
 
 ```powershell
 $env:TEST_DATABASE_URL = 'postgresql+psycopg://USER:PASSWORD@127.0.0.1:5432/DEDICATED_TEST_DB'
@@ -53,7 +53,7 @@ $env:TEST_DATABASE_URL = 'postgresql+psycopg://USER:PASSWORD@127.0.0.1:5432/DEDI
 Remove-Item Env:TEST_DATABASE_URL
 ```
 
-This Phase 1 command runs nine methods, applies migrations twice, checks model/schema drift, seeds fixtures and writes test users/events. Repeat with `-p test_phase_two.py` for the 26 Phase 2 PostgreSQL methods. **Use a dedicated disposable database, never production.** The test database is retained for inspection. CI runs both SQLite and PostgreSQL 17 checks (including Phase 2), builds/starts the full Compose stack and verifies login, tenant isolation, audit/session persistence across API restart and logout. It cleans up its disposable stack afterward. GitHub Actions execution passed, including a fresh Compose boot and restart acceptance: [verified run](https://github.com/Nourhankarmm/Enterprise-Autonomous-Multi-Agent-AI-Platform/actions/runs/43552653640).
+This Phase 1 command runs nine methods, applies migrations twice, checks model/schema drift, seeds fixtures and writes test users/events. Repeat with `-p test_phase_two.py` for the 27 Phase 2 PostgreSQL methods. **Use a dedicated disposable database, never production.** The test database is retained for inspection. CI runs both SQLite and PostgreSQL 17 checks (including Phase 2), builds/starts the full Compose stack and verifies login, tenant isolation, audit/session persistence across API restart and logout. It cleans up its disposable stack afterward. GitHub Actions execution passed, including a fresh Compose boot and restart acceptance: [verified run](https://github.com/Nourhankarmm/Enterprise-Autonomous-Multi-Agent-AI-Platform/actions/runs/43552653640).
 
 ## API
 

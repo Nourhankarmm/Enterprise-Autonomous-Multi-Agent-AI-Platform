@@ -1,5 +1,5 @@
 """Tenant-scoped allowlisted tools. No arbitrary callables or model-supplied identities."""
-from datetime import date
+from sqlalchemy.exc import OperationalError
 from .schemas import canonical_hash, PlanRejected
 from ..store import MockERP
 from ..domain import assess_order
@@ -13,6 +13,12 @@ class ToolGateway:
         self.tenant_id=tenant_id
 
     def execute(self,task,outputs,as_of):
+        try:
+            return self._execute(task,outputs,as_of)
+        except OperationalError:
+            raise TransientToolError('Read adapter temporarily unavailable') from None
+
+    def _execute(self,task,outputs,as_of):
         # Inputs come exclusively from validated filters or successful predecessor snapshots.
         capability=task.capability
         if capability=='purchase_orders.read':

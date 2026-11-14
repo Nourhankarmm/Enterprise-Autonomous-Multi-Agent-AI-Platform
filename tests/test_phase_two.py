@@ -359,4 +359,14 @@ class PhaseTwoTests(unittest.TestCase):
             self.assertIn('unknown_customer_data',inspect(engine).get_table_names())
             engine.dispose()
 
+
+    def test_adapter_connection_failure_is_a_retryable_read(self):
+        from sqlalchemy.exc import OperationalError
+        gateway=ToolGateway(self.path,'alpha')
+        def unavailable():raise OperationalError('read',{},Exception('private-db-details'))
+        gateway.erp.orders=unavailable
+        task=Proposal.model_validate(self.proposal()).tasks[0]
+        with self.assertRaises(TransientToolError) as error:gateway.execute(task,{},date(2026,11,14))
+        self.assertNotIn('private-db-details',str(error.exception))
+
 if __name__=='__main__':unittest.main()
