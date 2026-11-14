@@ -26,7 +26,7 @@ class LoginRequest(BaseModel):
     password: str = Field(min_length=1, max_length=1024)
 
 
-def create_app(db_path: str | None = None, tokens: dict[str, Identity] | None = None) -> FastAPI:
+def create_app(db_path: str | None = None, tokens: dict[str, Identity] | None = None, planner=None) -> FastAPI:
     path = db_path or os.getenv('DATABASE_URL') or os.getenv('DATABASE_PATH', '.data/phase1.db')
     # Legacy development tokens are opt-in; explicit test injection remains supported.
     if tokens is None:
@@ -49,7 +49,7 @@ def create_app(db_path: str | None = None, tokens: dict[str, Identity] | None = 
         yield
         engine.dispose()
 
-    app = FastAPI(title='Enterprise AI Operations - Phase 1', lifespan=lifespan)
+    app = FastAPI(title='Enterprise AI Operations - Phase 2', lifespan=lifespan)
     bearer = HTTPBearer(auto_error=False)
 
     @app.middleware('http')
@@ -143,6 +143,9 @@ def create_app(db_path: str | None = None, tokens: dict[str, Identity] | None = 
             rows = db.execute(select(audit_events).where(audit_events.c.tenant_id == actor.tenant_id)
                               .order_by(audit_events.c.occurred_at.desc()).limit(100)).mappings()
             return {'items': [dict(row) for row in rows]}
+
+    from .agents.routes import register_agent_routes
+    register_agent_routes(app,engine,path,reader,planner)
 
     web = Path(__file__).resolve().parents[1] / 'web'
     app.mount('/assets', StaticFiles(directory=web), name='assets')

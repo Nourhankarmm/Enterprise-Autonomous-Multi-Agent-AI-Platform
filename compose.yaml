@@ -31,6 +31,9 @@ services:
   api:
     build: .
     environment:
+      PLANNER_PROVIDER: ${PLANNER_PROVIDER:-demo}
+      OPENAI_MODEL: ${OPENAI_MODEL:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       DATABASE_URL: postgresql+psycopg://platform:${POSTGRES_PASSWORD}@db:5432/platform
     ports:
       - "127.0.0.1:${API_BIND_PORT:-8000}:8000"
