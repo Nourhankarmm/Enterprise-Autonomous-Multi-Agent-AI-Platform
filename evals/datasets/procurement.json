@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "as_of": "2026-11-14",
+  "orders": [
+    {"tenant_id":"alpha","id":"PO-A1","supplier_id":"S1","project_id":"P1","quantity":100,"delivered_quantity":20,"due_date":"2026-11-01","critical":true},
+    {"tenant_id":"alpha","id":"PO-A2","supplier_id":"S2","project_id":"P2","quantity":50,"delivered_quantity":0,"due_date":"2026-11-12","critical":false},
+    {"tenant_id":"alpha","id":"PO-A3","supplier_id":"S3","project_id":"P1","quantity":40,"delivered_quantity":0,"due_date":"2026-11-05","critical":true},
+    {"tenant_id":"beta","id":"PO-B1","supplier_id":"S1","project_id":"P9","quantity":70,"delivered_quantity":70,"due_date":"2026-11-01","critical":true}
+  ],
+  "contracts": [
+    {"tenant_id":"alpha","id":"C-A1","supplier_id":"S1","grace_days":5,"version":1,"location":"synthetic-contracts.md#c-a1"},
+    {"tenant_id":"alpha","id":"C-A2","supplier_id":"S2","grace_days":3,"version":1,"location":"synthetic-contracts.md#c-a2"},
+    {"tenant_id":"beta","id":"C-B1","supplier_id":"S1","grace_days":0,"version":1,"location":"synthetic-contracts.md#c-b1"}
+  ]
+}

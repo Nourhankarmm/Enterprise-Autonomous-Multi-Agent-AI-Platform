@@ -1,0 +1,17 @@
+[
+  {"name":"on_due_date","due":"2026-11-14","delivered":0,"grace":0,"critical":true,"late":0,"beyond":0,"risk":"LOW"},
+  {"name":"future_due","due":"2026-11-15","delivered":0,"grace":0,"critical":true,"late":0,"beyond":0,"risk":"LOW"},
+  {"name":"one_day_critical","due":"2026-11-13","delivered":0,"grace":0,"critical":true,"late":1,"beyond":1,"risk":"HIGH"},
+  {"name":"one_day_noncritical","due":"2026-11-13","delivered":0,"grace":0,"critical":false,"late":1,"beyond":1,"risk":"MEDIUM"},
+  {"name":"within_grace","due":"2026-11-12","delivered":0,"grace":3,"critical":true,"late":2,"beyond":0,"risk":"LOW"},
+  {"name":"grace_boundary","due":"2026-11-11","delivered":0,"grace":3,"critical":true,"late":3,"beyond":0,"risk":"LOW"},
+  {"name":"beyond_grace","due":"2026-11-10","delivered":0,"grace":3,"critical":true,"late":4,"beyond":1,"risk":"HIGH"},
+  {"name":"partial_delivery","due":"2026-11-01","delivered":40,"grace":5,"critical":true,"late":13,"beyond":8,"risk":"HIGH"},
+  {"name":"complete_delivery","due":"2026-11-01","delivered":100,"grace":0,"critical":true,"late":0,"beyond":0,"risk":"LOW"},
+  {"name":"over_delivery","due":"2026-11-01","delivered":110,"grace":0,"critical":true,"late":0,"beyond":0,"risk":"LOW"},
+  {"name":"month_boundary","due":"2026-10-31","delivered":0,"grace":5,"critical":false,"late":14,"beyond":9,"risk":"MEDIUM"},
+  {"name":"missing_contract_overdue","due":"2026-11-01","delivered":0,"grace":null,"critical":true,"late":13,"beyond":null,"risk":null},
+  {"name":"missing_contract_future","due":"2026-11-20","delivered":0,"grace":null,"critical":false,"late":0,"beyond":null,"risk":null},
+  {"name":"partial_within_grace","due":"2026-11-12","delivered":90,"grace":5,"critical":true,"late":2,"beyond":0,"risk":"LOW"},
+  {"name":"long_grace","due":"2026-11-01","delivered":0,"grace":30,"critical":false,"late":13,"beyond":0,"risk":"LOW"}
+]
