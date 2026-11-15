@@ -18,7 +18,7 @@ RULES=[
 def text_hash(text):return hashlib.sha256(text.encode()).hexdigest()
 
 
-def extract_terms(pages,supplier_id):
+def extract_terms(pages,supplier_id,ocr=None):
     facts=[]
     for page_number,text in enumerate(pages,1):
         normalized=text.translate(DIGITS)
@@ -54,6 +54,11 @@ def extract_terms(pages,supplier_id):
         'day_basis':grace[0]['day_basis'] if len(values)==1 else None,
         'due_date':dues[0]['value'] if dues and len({f['value'] for f in dues})==1 else None,
         'supplier_link':'EXPLICIT' if suppliers else 'MANUAL_REVIEW_REQUIRED'}
+    if ocr is not None:
+        result['ocr']=ocr
+        # Confidence is a conservative gate, never a calibrated correctness probability.
+        if any(p['min_confidence']<60 or not p['word_count'] for p in ocr['pages']):
+            result.update(state='NEEDS_REVIEW',reason='OCR_LOW_CONFIDENCE')
     result['extraction_hash']=canonical_hash(result)
     return result
 

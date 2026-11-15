@@ -110,7 +110,7 @@ def create_app(db_path: str | None = None, tokens: dict[str, Identity] | None = 
             key=actor.tenant_id+'/'+actor.subject;route=request.url.path
             if request.method=='POST' and (route=='/v1/operations' or route.endswith('/revise')):
                 limiter.consume('planning',key,plan_limit)
-            elif request.method=='POST' and route=='/v1/documents':limiter.consume('pdf_upload',key,upload_limit)
+            elif request.method=='POST' and (route=='/v1/documents' or route.endswith('/ocr')):limiter.consume('pdf_upload',key,upload_limit)
             elif route=='/v1/documents/search':limiter.consume('search',key,search_limit)
         return actor
 
