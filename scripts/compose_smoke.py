@@ -103,6 +103,15 @@ finally:
     assert finished['state']=='WAITING_DOCUMENT'
     assert all(t['state']=='SUCCEEDED' and t['attempts']==1 for t in finished['tasks'])
     assert finished['result']['unresolved_order_ids']==['PO-A3']
+    trace=request('/v1/operations/'+operation['id']+'/trace',tokens['alpha'])
+    assert len(trace['tasks'])==5 and not trace['private_reasoning_included']
+    assert all(t['timings'][0]['duration_ms']>=0 for t in trace['tasks'])
+    dashboard=request('/v1/dashboard',tokens['alpha'])
+    assert operation['id'] in {r['id'] for r in dashboard['analyses']}
+    assert operation['id'] not in {r['id'] for r in request('/v1/dashboard',tokens['beta'])['analyses']}
+    usage=request('/v1/telemetry/planner',tokens['alpha'])
+    assert usage['summary']['calls']==1 and usage['summary']['total_estimate_usd']=='0'
+    call_id=usage['items'][0]['id']
     events=request('/v1/operations/'+operation['id']+'/events',tokens['alpha'])['items']
     assert sum(e['event_type']=='task.succeeded' for e in events)==5
     # Ingest a real PDF with multipart, inspect exact page citations, then publish explicitly.
@@ -136,6 +145,7 @@ finally:
     compose('restart', 'api')
     wait_ready()
     assert request('/v1/me', tokens['alpha'])['tenant_id'] == 'alpha'
+    assert request('/v1/telemetry/planner',tokens['alpha'])['items'][0]['id']==call_id
     assert request('/v1/documents/'+document['id'],tokens['alpha'])['state']=='READY'
     assert request('/v1/documents/'+document['id']+'/pages/2',tokens['alpha'])['checksum']==document['checksum']
     restored=request('/v1/operations/'+operation['id'],tokens['alpha'])

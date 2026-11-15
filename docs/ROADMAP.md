@@ -37,7 +37,7 @@ Solo developer; part-time or full-time pace changes duration. Estimate: **21Ã¢â‚
 - [x] M2: Validated agent plans and execution traces (real Gemini acceptance verified; see PHASE_2_REVIEW.md)
 - [x] M3: Citation-backed procurement analysis (reviewed PDF clauses, ACL-filtered lexical retrieval, real Gemini acceptance and PostgreSQL/Compose CI verified; see PHASE_3_REVIEW.md)
 - [x] M4: Durable approvals and safe side effects (Temporal lifecycle/replay, assigned independent approval and idempotent sandbox-mail recovery; see PHASE_4_REVIEW.md; no real email integration)
-- [ ] M5: Usable operations dashboard
+- [x] M5: Usable operations dashboard (role-aware UI, reviewed evidence/approvals, recorded traces and coverage-aware local usage estimates; see PHASE_5_REVIEW.md)
 - [ ] M6: Published evaluation report and reproducible demo
 
 ## Priority rules

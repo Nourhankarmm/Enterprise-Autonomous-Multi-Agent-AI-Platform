@@ -39,6 +39,7 @@ services:
       DATABASE_URL: postgresql+psycopg://platform:${POSTGRES_PASSWORD}@db:5432/platform
       TEMPORAL_ADDRESS: temporal:7233
       WORKFLOW_POLL_SECONDS: ${WORKFLOW_POLL_SECONDS:-15}
+      MODEL_PRICING_JSON: ${MODEL_PRICING_JSON:-}
     ports:
       - "127.0.0.1:${API_BIND_PORT:-8000}:8000"
     depends_on:

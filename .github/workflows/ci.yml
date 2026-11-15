@@ -43,7 +43,11 @@ jobs:
           TEST_DATABASE_URL: postgresql+psycopg://platform:ci-only-password@localhost:5432/platform_test
       - run: node --check web/app.js
       - run: node --check web/workflows.js
+      - run: node --check web/dashboard.js
       - run: python -m unittest discover -s tests -p test_phase_four.py -v
+        env:
+          TEST_DATABASE_URL: postgresql+psycopg://platform:ci-only-password@localhost:5432/platform_test
+      - run: python -m unittest discover -s tests -p test_phase_five.py -v
         env:
           TEST_DATABASE_URL: postgresql+psycopg://platform:ci-only-password@localhost:5432/platform_test
       - run: docker compose config --quiet

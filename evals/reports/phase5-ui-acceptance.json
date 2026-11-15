@@ -1,0 +1,31 @@
+{
+  "verified_at": "2026-11-15T17:59:56.518737+00:00",
+  "workflow_id": "36eb3ba7-0446-5277-911b-d50cc6b37124",
+  "state": "COMPLETED",
+  "planner": "demo",
+  "new_live_model_call_claimed": false,
+  "source": "reviewed_pdf",
+  "source_page": 2,
+  "order_id": "QA5-PO1",
+  "late_days": 13,
+  "beyond_grace_days": 8,
+  "risk": "HIGH",
+  "proposal_revision": 2,
+  "stale_proposal_controls_disabled_in_browser": true,
+  "independent_assigned_approval": true,
+  "provider_messages": 1,
+  "real_emails_sent": 0,
+  "receipt": {
+    "provider": "sandbox",
+    "message_id": "sandbox-2649ea8c-74d5-4c55-945f-4c09c07ef9af",
+    "accepted": true
+  },
+  "measured_planner_calls": 1,
+  "estimated_demo_model_cost_usd": "0",
+  "desktop_navigation_filters_trace_evidence_and_usage_verified": true,
+  "saved_state_after_relogin_verified": true,
+  "mobile_viewport_width": 390,
+  "mobile_page_width": 375,
+  "mobile_usage_table_scrolls_in_container": true,
+  "logout_cleared_dashboard_usage_trace_and_evidence": true
+}

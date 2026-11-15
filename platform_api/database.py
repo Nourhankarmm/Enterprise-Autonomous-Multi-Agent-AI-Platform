@@ -144,6 +144,16 @@ sandbox_messages = Table('sandbox_messages',metadata,
     Column('idempotency_key',String,primary_key=True),Column('tenant_id',String,nullable=False),
     Column('action_hash',String,nullable=False),Column('receipt',JSON,nullable=False))
 
+planner_calls = Table('planner_calls',metadata,
+    Column('id',String,primary_key=True),Column('tenant_id',String,nullable=False),
+    Column('requester_id',String,nullable=False),Column('operation_id',String),
+    Column('provider',String,nullable=False),Column('model',String),Column('status',String,nullable=False),
+    Column('usage',JSON,nullable=False),Column('usage_known',Boolean,nullable=False),
+    Column('duration_ms',Integer,nullable=False),Column('estimated_cost_usd',String),Column('pricing',JSON),
+    Column('error_code',String),Column('occurred_at',String,nullable=False),
+    ForeignKeyConstraint(['tenant_id'],['tenants.id']),
+    ForeignKeyConstraint(['tenant_id','operation_id'],['operations.tenant_id','operations.id']))
+
 def database_url(path):
     if '://' in path:
         return path

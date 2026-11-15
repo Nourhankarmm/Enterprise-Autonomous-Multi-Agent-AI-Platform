@@ -2,7 +2,7 @@
 
 This is a synchronous, read-only Phase 2 runner, not the Temporal workflow engine.
 """
-import time
+import time,os
 import uuid
 from datetime import datetime, timezone, date
 from typing import TypedDict, Annotated
@@ -15,7 +15,7 @@ from .planner import configured_planner
 from .gateway import ToolGateway, TransientToolError
 from ..documents.service import DocumentService
 from ..documents.schemas import DocumentError
-from ..database import operations, agent_tasks, operation_events, audit_events, users,workflow_runs
+from ..database import operations, agent_tasks, operation_events, audit_events, users,workflow_runs,planner_calls
 
 class OperationError(Exception):
     def __init__(self,status,detail):self.status,self.detail=status,detail
@@ -60,9 +60,13 @@ class OperationService:
             op=self._get(db,actor,operation_id)
             tasks=[dict(r) for r in db.execute(select(agent_tasks).where(
                 agent_tasks.c.tenant_id==actor.tenant_id,agent_tasks.c.operation_id==operation_id)).mappings()]
+            linked=db.execute(select(workflow_runs.c.id).where(workflow_runs.c.tenant_id==actor.tenant_id,
+                workflow_runs.c.requester_id==actor.subject,or_(workflow_runs.c.operation_id==operation_id,
+                workflow_runs.c.snapshot_id==operation_id))).scalars().first()
         DocumentService(self.engine).assert_snapshot_access(actor,{'tasks':tasks,'result':op['result']})
         for key in ('lease_token','lease_until','deadline_at'):op.pop(key,None)
         op['tasks']=tasks
+        op['workflow_id']=linked
         return op
 
     def list(self,actor):
@@ -82,12 +86,23 @@ class OperationService:
                 operation_events.c.id>after).order_by(operation_events.c.id).limit(limit)).mappings()]
         return {'items':rows,'next_cursor':rows[-1]['id'] if rows else after}
 
-    def _plan(self,goal,as_of,version,actor):
-        planner=self.planner or configured_planner()
-        result=planner.propose(goal,as_of)
-        proposal=validate_proposal(result.proposal)
-        if proposal.disposition=='out_of_scope':raise OperationError(422,proposal.clarification)
-        plan=Plan(version=version,as_of=as_of,proposal=proposal)
+    def _plan(self,goal,as_of,version,actor,operation_id=None):
+        from ..telemetry import record_call
+        started=time.perf_counter();planner=self.planner;result=None
+        try:
+            planner=planner or configured_planner()
+            result=planner.propose(goal,as_of)
+            proposal=validate_proposal(result.proposal)
+            if proposal.disposition=='out_of_scope':raise OperationError(422,proposal.clarification)
+            plan=Plan(version=version,as_of=as_of,proposal=proposal)
+        except Exception:
+            record_call(self.engine,actor,getattr(result,'provider',None) or getattr(planner,'name',None) or os.getenv('PLANNER_PROVIDER','demo'),
+                getattr(result,'model',None) or getattr(planner,'model',None),'REJECTED' if result else 'FAILED',
+                getattr(result,'usage',{}),(time.perf_counter()-started)*1000,
+                'PLAN_REJECTED' if result else 'PLANNER_UNAVAILABLE',operation_id)
+            raise
+        result.telemetry_id=record_call(self.engine,actor,result.provider,result.model,'SUCCESS',result.usage,
+            (time.perf_counter()-started)*1000,operation_id=operation_id)
         return plan,plan_hash(plan,actor.tenant_id,actor.subject),result
 
     def _insert_tasks(self,db,actor,operation_id,plan):
@@ -105,6 +120,7 @@ class OperationService:
                 planner_provider=result.provider,planner_model=result.model,planner_usage=result.usage,
                 created_at=now_iso(),updated_at=now_iso()))
             self._insert_tasks(db,actor,operation_id,plan)
+            db.execute(update(planner_calls).where(planner_calls.c.id==result.telemetry_id).values(operation_id=operation_id))
             self.event(db,actor,operation_id,'plan.created',details={'version':1,'provider':result.provider,'plan_hash':digest})
         return self.get(actor,operation_id)
 
@@ -114,7 +130,7 @@ class OperationService:
             raise OperationError(409,'Plan cannot be revised or revision budget exhausted')
         if old['plan_version']!=body.version or old['plan_hash']!=body.plan_hash:
             raise OperationError(409,'Plan version/hash changed; review the latest plan')
-        plan,digest,result=self._plan(body.goal,body.as_of,old['plan_version']+1,actor)
+        plan,digest,result=self._plan(body.goal,body.as_of,old['plan_version']+1,actor,operation_id)
         with self.engine.begin() as db:
             self._get(db,actor,operation_id,lock=True)
             changed=db.execute(update(operations).where(*self.scope(actor,operation_id),
