@@ -78,7 +78,8 @@ class PhaseSevenTests(unittest.TestCase):
         from fastapi.testclient import TestClient
         source=self.source()
         with patch.dict(os.environ,{'RATE_LIMIT_ENABLED':'1','UPLOAD_USER_LIMIT':'1'}),patch('platform_api.documents.ocr.extract_ocr',return_value=result()) as engine:
-            with TestClient(phase3.create_app(self.path,self.tokens,phase3.DemoPlanner())) as client:
+            app=phase3.create_app(self.path,self.tokens,phase3.DemoPlanner());app.state.rate_limiter.clock=lambda:1800000000
+            with TestClient(app) as client:
                 url='/v1/documents/'+source['id']+'/ocr';body={'revision':source['revision'],'version':2}
                 self.assertEqual(client.post(url,headers=self.headers(),json=body).status_code,201)
                 response=client.post(url,headers=self.headers(),json=body)
