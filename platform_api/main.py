@@ -50,7 +50,7 @@ def create_app(db_path: str | None = None, tokens: dict[str, Identity] | None = 
         yield
         engine.dispose()
 
-    app = FastAPI(title='Enterprise AI Operations - Phase 3', lifespan=lifespan)
+    app = FastAPI(title='Enterprise AI Operations - Phase 4', lifespan=lifespan)
     bearer = HTTPBearer(auto_error=False)
 
     @app.middleware('http')
@@ -151,7 +151,12 @@ def create_app(db_path: str | None = None, tokens: dict[str, Identity] | None = 
     from .agents.routes import register_agent_routes
     register_agent_routes(app,engine,path,reader,planner)
     from .documents.routes import register_document_routes
-    register_document_routes(app,engine,reader)
+    def document_reader(actor: Identity = Depends(identity)):
+        if actor.role not in {'manager','analyst','approver'}:raise HTTPException(403,'Evidence read permission required')
+        return actor
+    register_document_routes(app,engine,reader,document_reader)
+    from .workflows.routes import register_workflow_routes
+    register_workflow_routes(app,engine,path,identity,reader)
 
     web = Path(__file__).resolve().parents[1] / 'web'
     app.mount('/assets', StaticFiles(directory=web), name='assets')

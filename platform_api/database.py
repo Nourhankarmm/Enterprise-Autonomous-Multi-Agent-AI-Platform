@@ -105,6 +105,45 @@ contract_sources = Table('contract_sources',metadata,
     ForeignKeyConstraint(['tenant_id','supplier_id'],['suppliers.tenant_id','suppliers.id']),
     ForeignKeyConstraint(['tenant_id','document_id'],['documents.tenant_id','documents.id']))
 
+workflow_runs = Table('workflow_runs',metadata,
+    Column('tenant_id',String,primary_key=True),Column('id',String,primary_key=True),
+    Column('operation_id',String,nullable=False),Column('requester_id',String,nullable=False),
+    Column('state',String,nullable=False),Column('revision',Integer,nullable=False),
+    Column('snapshot_id',String),Column('result',JSON),Column('error_code',String),
+    Column('created_at',String,nullable=False),Column('updated_at',String,nullable=False),
+    UniqueConstraint('tenant_id','operation_id',name='one_workflow_per_operation'),
+    ForeignKeyConstraint(['tenant_id','operation_id'],['operations.tenant_id','operations.id']))
+workflow_actions = Table('workflow_actions',metadata,
+    Column('tenant_id',String,primary_key=True),Column('id',String,primary_key=True),
+    Column('workflow_id',String,nullable=False),Column('revision',Integer,nullable=False),
+    Column('payload',JSON,nullable=False),Column('action_hash',String,nullable=False),
+    Column('snapshot_id',String,nullable=False),Column('created_at',String,nullable=False),
+    UniqueConstraint('tenant_id','workflow_id','revision',name='workflow_action_revision'),
+    ForeignKeyConstraint(['tenant_id','workflow_id'],['workflow_runs.tenant_id','workflow_runs.id']))
+workflow_commands = Table('workflow_commands',metadata,
+    Column('id',Integer,primary_key=True,autoincrement=True),Column('tenant_id',String,nullable=False),
+    Column('workflow_id',String,nullable=False),Column('request_id',String,nullable=False),
+    Column('kind',String,nullable=False),Column('actor_id',String,nullable=False),
+    Column('payload',JSON,nullable=False),Column('created_at',String,nullable=False),
+    UniqueConstraint('tenant_id','workflow_id','request_id',name='workflow_command_dedupe'),
+    ForeignKeyConstraint(['tenant_id','workflow_id'],['workflow_runs.tenant_id','workflow_runs.id']))
+approvals = Table('approvals',metadata,
+    Column('tenant_id',String,primary_key=True),Column('id',String,primary_key=True),
+    Column('action_id',String,nullable=False),Column('approver_id',String,nullable=False),
+    Column('action_hash',String,nullable=False),Column('decision',String,nullable=False),
+    Column('policy_version',String,nullable=False),Column('decided_at',Float,nullable=False),
+    Column('expires_at',Float,nullable=False),
+    ForeignKeyConstraint(['tenant_id','action_id'],['workflow_actions.tenant_id','workflow_actions.id']))
+action_executions = Table('action_executions',metadata,
+    Column('tenant_id',String,primary_key=True),Column('workflow_id',String,primary_key=True),
+    Column('action_id',String,nullable=False),Column('action_hash',String,nullable=False),
+    Column('idempotency_key',String,unique=True,nullable=False),Column('state',String,nullable=False),
+    Column('attempts',Integer,nullable=False),Column('receipt',JSON),Column('updated_at',String,nullable=False),
+    ForeignKeyConstraint(['tenant_id','workflow_id'],['workflow_runs.tenant_id','workflow_runs.id']))
+sandbox_messages = Table('sandbox_messages',metadata,
+    Column('idempotency_key',String,primary_key=True),Column('tenant_id',String,nullable=False),
+    Column('action_hash',String,nullable=False),Column('receipt',JSON,nullable=False))
+
 def database_url(path):
     if '://' in path:
         return path

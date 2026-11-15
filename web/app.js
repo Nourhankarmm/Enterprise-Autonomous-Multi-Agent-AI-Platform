@@ -4,12 +4,12 @@ const el = id => document.getElementById(id);
 const labels = {HIGH:'عالية', MEDIUM:'متوسطة', LOW:'منخفضة'};
 el('as-of').value = new Date().toLocaleDateString('en-CA');
 function clearWorkspace() { el('rows').replaceChildren(); el('metrics').replaceChildren(); el('identity').textContent=''; }
-function loggedOut() { clearDocumentWorkspace();currentOperation=null;el('operation-detail').hidden=true;el('operation-history').replaceChildren();token=null; clearWorkspace(); el('workspace').hidden=true; el('login-panel').hidden=false; }
+function loggedOut() { clearWorkflowWorkspace();currentIdentity=null; clearDocumentWorkspace();currentOperation=null;el('operation-detail').hidden=true;el('operation-history').replaceChildren();token=null; clearWorkspace(); el('workspace').hidden=true; el('login-panel').hidden=false; }
 async function api(path, options={}) {
   const response=await fetch(path, {...options, headers:{...(options.body instanceof FormData?{}:{'Content-Type':'application/json'}),...(options.headers??{}), ...(token?{Authorization:`Bearer ${token}`}:{})}});
   if (!response.ok) {
     if(response.status===401 && token) loggedOut();
-    if(response.status===403 || (response.status===404 && path.startsWith('/v1/documents/'))){clearDocumentWorkspace();currentOperation=null;el('operation-detail').hidden=true;}
+    if(response.status===403 || (response.status===404 && path.startsWith('/v1/documents/'))){clearWorkflowWorkspace();clearDocumentWorkspace();currentOperation=null;el('operation-detail').hidden=true;}
     const errorBody=await response.json().catch(()=>({}));
     if(response.status!==401 && typeof errorBody.detail==='string') throw new Error(errorBody.detail);
     throw new Error(response.status===401?'بيانات الدخول غير صحيحة أو انتهت الجلسة.':response.status===403?'حسابك لا يملك صلاحية عرض المشتريات.':'تعذر تحميل البيانات. حاول مرة أخرى.');
@@ -37,7 +37,7 @@ async function load() {
 }
 el('login-form').addEventListener('submit',async event=>{
   event.preventDefault();el('login-button').disabled=true;el('message').textContent='جارٍ تسجيل الدخول…';
-  try {const result=await api('/v1/auth/login',{method:'POST',body:JSON.stringify({username:el('username').value,password:el('password').value})});token=result.access_token;el('password').value='';el('login-panel').hidden=true;el('workspace').hidden=false;await load();await loadAgentWorkspace();await loadDocumentWorkspace();}
+  try {const result=await api('/v1/auth/login',{method:'POST',body:JSON.stringify({username:el('username').value,password:el('password').value})});token=result.access_token;el('password').value='';el('login-panel').hidden=true;el('workspace').hidden=false;await loadWorkflowWorkspace(result.identity);if(result.identity.role!=='approver'){await load();await loadAgentWorkspace();await loadDocumentWorkspace();}else{el('identity').textContent=result.identity.tenant_id+' · approver';el('message').textContent='';}}
   catch(error){el('message').textContent=error.message;}
   finally{el('login-button').disabled=false;}
 });
@@ -67,7 +67,7 @@ function renderOperation(op){
   el('operation-question').textContent=op.plan.proposal.clarification??'';el('plan-tasks').replaceChildren();
   const names=new Map(op.plan.proposal.tasks.map(t=>[t.task_id,capabilityLabels[t.capability]]));
   for(const task of op.plan.proposal.tasks){const li=document.createElement('li');const saved=op.tasks.find(t=>t.task_id===task.task_id);li.textContent=`${capabilityLabels[task.capability]} · ${stateLabels[saved?.state]??'لم تبدأ'} · المحاولات: ${saved?.attempts??0}/${task.max_attempts}`;const detail=document.createElement('small');detail.textContent=task.depends_on.length?'بعد: '+task.depends_on.map(id=>names.get(id)).join('، '):'بداية التنفيذ';li.append(detail);if(task.filters){const filter=document.createElement('small');filter.textContent=`النطاق: ${task.filters.outstanding_only?'طلبات مفتوحة':'كل الطلبات'} · المورد: ${task.filters.supplier_id??'الكل'} · المشروع: ${task.filters.project_id??'الكل'} · الطلبات: ${task.filters.order_ids.join('، ')||'الكل'}`;li.append(filter);}el('plan-tasks').append(li);}
-  el('confirm-operation').disabled=op.state!=='PLANNED';el('revise-operation').disabled=!['PLANNED','WAITING_CLARIFICATION'].includes(op.state)||op.replans>=2;
+  el('start-durable').disabled=!['PLANNED','COMPLETED','WAITING_DOCUMENT','WAITING_CLARIFICATION'].includes(op.state);el('confirm-operation').disabled=op.state!=='PLANNED';el('revise-operation').disabled=!['PLANNED','WAITING_CLARIFICATION'].includes(op.state)||op.replans>=2;
   el('cancel-operation').disabled=!['PLANNED','WAITING_CLARIFICATION','WAITING_DOCUMENT','RUNNING','CANCEL_REQUESTED'].includes(op.state);
   el('resume-operation').hidden=op.state!=='RUNNING';el('resume-operation').disabled=false;el('refresh-operation').disabled=false;
   el('operation-result').hidden=!op.result;el('operation-findings').replaceChildren();

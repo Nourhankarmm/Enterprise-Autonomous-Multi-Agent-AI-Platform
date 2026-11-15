@@ -1,0 +1,33 @@
+# Phase 4 — durable workflow and independently approved follow-ups
+
+Temporal owns the new background operation lifecycle. The existing bounded LangGraph runner is a read-only activity within it; legacy synchronous analyses remain available for compatibility. A reserved operation cannot be changed through legacy confirm/revise/resume/cancel controls. PostgreSQL/SQLite store domain records and UI projections, not a competing background scheduler.
+
+## Delivered scope
+
+- Exact-plan durable start with a deterministic workflow ID and reject-duplicate reuse policy. A failed API response can be retried without creating another execution. An unavailable Temporal service returns 503 with the reservation intact for retry.
+- Separate worker process; durable seven-day missing-document/conflict waits. The owner explicitly requests a refresh after reviewing new evidence. Refresh reruns the same confirmed filters into a new read-only snapshot, bounded to ten refreshes. Old evidence/results remain unchanged. Wait expiry exposes supported partial findings or fails if none are supported.
+- Durable command inbox for refresh, cancellation and approval decisions. Commands survive an API/worker outage and are read through activities on durable timers (15 seconds by default). History is rotated with continue-as-new every 200 polling iterations, preserving cursor, deadlines and current action decision.
+- Immutable manual email proposals based on completed, supported findings. Exact canonical payload includes tenant/workflow/logical action, connector, sender, recipients/CC/BCC, subject/body, attachments, policy and evidence identities. Each revision requires fresh review. No model can choose a connector or submit arbitrary recipients.
+- Independent approver role and inbox. Requesters cannot approve their own actions. Decisions require the exact proposal hash, current permission, the latest proposal and readable evidence. Approval expires after 24 hours. Current requester/approver access, policy, ERP records, contract versions and document ACLs are rechecked at dispatch.
+- A unique logical-action ledger is committed before the provider call. Accepted receipts are reconciled before considering a retry or revoked permission. Known pre-submission failure has at most three attempts. Unknown outcomes remain RECONCILING and are never blindly resubmitted. Cancellation after acceptance retains the send receipt in the final projection.
+- Arabic UI for background start, status, refresh, cancellation, frozen drafts, exact approve/reject and receipts. Assigned approvers can view explicitly shared PDF pages without procurement write/upload authority.
+
+## Connector boundary
+
+The only shipped email adapter is **sandbox-mail**, a local durable provider simulator. It stores one accepted message per idempotency key and supports receipt lookup in a separate transaction, including the crash window after acceptance and before recording success in the domain ledger. It never opens SMTP or calls an external email service. Destinations are fixed `*.example.invalid` addresses. CC/BCC and attachments are explicitly empty. No production mailbox credentials are requested or used.
+
+This proves the dispatch protocol against an idempotent sandbox provider, not universal exactly-once delivery across arbitrary SMTP providers. A real provider requires a separate reviewed adapter, destination policy and reconciliation integration. An absent provider lookup leaves an ambiguous action waiting; no manual force-success/retry button is provided.
+
+## Run and review
+
+Use `docker compose up --build -d --wait` after setting POSTGRES_PASSWORD. Compose runs PostgreSQL, migrations/seeding, persistent Temporal **development** server, API and worker. Temporal persistence has its own volume. Its RPC/UI ports are not published by Compose. For local Windows development, run the official Temporal CLI with `temporal server start-dev --db-filename .data/temporal-phase4.db`, then `.venv\Scripts\python.exe scripts/run_durable.py`; the demo planner/API is served on port 8002. The separate Gemini server is unaffected.
+
+Create separate local users with `platform_api.manage create-user --username ... --tenant alpha --role manager` and `--role approver`; passwords are prompted locally. The owner confirms a plan with the background-start button, resolves missing documents, freezes a draft, then the independent approver signs in and approves/rejects that exact draft. Use refresh to observe activity processing. Procurement evidence must be explicitly shared with an approver before PDF-backed approval.
+
+## Validation and limits
+
+Phase 4 regression tests cover independent/live roles, tenant isolation, immutable revisions, expiration, evidence/ERP changes, ACL revocation, canonical payload tampering, idempotent commands/decisions, concurrent dispatch, cancellation, bounded pre-send retries, unknown outcomes and crash-after-provider-acceptance recovery. A real Temporal integration test stops/recreates the worker across document and approval waits, exercises continue-as-new, and replays both initial and final histories. Compose acceptance SIGKILLs the worker, restarts API and Temporal with persisted data, submits commands while the worker is down and checks exactly one sandbox message/receipt. Final PR checks record which validations ran successfully.
+
+This remains a synthetic development environment: local auth, no OIDC, no production Temporal deployment/TLS, no production provider, no automated document-arrival inference, no legal-language/OCR interpretation, no arbitrary file attachments. Drafting is explicit human text, not LLM-generated correspondence. The UI is an incremental review surface; Phase 5 telemetry/dashboard work remains open. Temporal history contains minimal activity inputs and analysis results/quotes; production access controls, encryption/retention and worker deployment versioning still need hardening. Existing workflow histories must be replay-tested when changing workflow code.
+
+References: [Temporal Python testing/replay](https://docs.temporal.io/develop/python/best-practices/testing-suite), [development-server persistence](https://docs.temporal.io/cli/command-reference/server), [workflow message passing](https://docs.temporal.io/encyclopedia/workflow-message-passing).
