@@ -1,8 +1,8 @@
 # Enterprise Autonomous Multi-Agent AI Platform
 
-Phases 0–4 are implemented for a synthetic demonstration: tenant-scoped procurement, reviewed LangGraph plans, PDF evidence and ACL-filtered retrieval, and Temporal background follow-ups with independent approvals and idempotent sandbox email. Real Gemini planning acceptance is verified in `evals/reports/phase2-live-gemini.json` and `phase3-live-gemini.json`. Authentication remains a **local stub**, not OIDC/SSO, and no real email is delivered.
+Phases 0–5 are implemented for a synthetic demonstration: tenant-scoped procurement, reviewed LangGraph plans, PDF evidence and ACL-filtered retrieval, Temporal background follow-ups with independent approvals, and a role-aware operations dashboard with local traces/usage estimates. Real Gemini planning acceptance is verified in `evals/reports/phase2-live-gemini.json` and `phase3-live-gemini.json`. Authentication remains a **local stub**, not OIDC/SSO, and no real email is delivered.
 
-See [Phase 4 review](docs/PHASE_4_REVIEW.md), [Phase 3 review](docs/PHASE_3_REVIEW.md), [Phase 2 review](docs/PHASE_2_REVIEW.md), [Phase 1 review](docs/PHASE_1_REVIEW.md), [roadmap](docs/ROADMAP.md), and [Phase 0 rules](docs/PHASE_0_SPEC.md).
+See [Phase 5 review](docs/PHASE_5_REVIEW.md), [Phase 4 review](docs/PHASE_4_REVIEW.md), [Phase 3 review](docs/PHASE_3_REVIEW.md), [Phase 2 review](docs/PHASE_2_REVIEW.md), [Phase 1 review](docs/PHASE_1_REVIEW.md), [roadmap](docs/ROADMAP.md), and [Phase 0 rules](docs/PHASE_0_SPEC.md).
 
 ## Local PowerShell setup
 
@@ -123,7 +123,7 @@ API additions:
 - `PUT /v1/documents/{id}/acl`: owner sends current `revision` and exact `readers` user IDs. `GET /v1/document-readers` provides eligible same-company users.
 - `GET /v1/document-samples/{sample}`: authenticated synthetic fixture download; samples include `supplier-s1`, `supplier-s3`, `conflicting`, `business-days`, `scanned`.
 
-SQLite startup applies additive migrations, including contract-family ownership preservation. PostgreSQL still requires explicit `alembic upgrade head` before API startup. The current migrations are 0001–0005. See the phase reviews for detailed validation and remaining limits.
+SQLite startup applies additive migrations, including contract-family ownership preservation. PostgreSQL still requires explicit `alembic upgrade head` before API startup. The current migrations are 0001–0006. See the phase reviews for detailed validation and remaining limits.
 
 ## Durable follow-ups and approvals (Phase 4)
 
@@ -136,6 +136,16 @@ The only email connector is a local **sandbox**: fixed `.example.invalid` recipi
 API: `POST /v1/operations/{id}/durable` with exact plan `version`/`plan_hash`; `GET /v1/workflows` and `/{id}`; `POST /v1/workflows/{id}/draft`, `/refresh`, `/cancel`; `GET /v1/approvals`; `POST /v1/approvals/{action_id}/decision`. Mutating requests carry a unique `request_id`; decisions also carry `action_hash` and `approve`/`reject`. Draft fields are `supplier_id`, `subject`, `body`, and optional `approver_id` (required when multiple eligible approvers exist). `GET /v1/workflow-approvers` lists eligible choices. Identity and destinations cannot be supplied by the model or request body.
 
 Local Windows: start the official Temporal CLI with `temporal server start-dev --db-filename .data/temporal-phase4.db`, then `.venv\Scripts\python.exe scripts/run_durable.py`; open `http://127.0.0.1:8002`. This launcher uses the local demo planner and leaves the Gemini server separate. See [Phase 4 review](docs/PHASE_4_REVIEW.md) for setup, recovery protocol and limits. `TEST_TEMPORAL_ADDRESS=127.0.0.1:7233` enables the real history/replay integration test; ordinary unittest discovery skips it when no server is configured.
+
+## Operations workspace and local telemetry (Phase 5)
+
+After login, use the navigation to switch between **نظرة عامة**, **الهدف والخطة**, **المتابعات والموافقات**, **العقود والأدلة**, **الاستهلاك والتكلفة** and **طلبات الشراء**. Approvers see assigned cases and shared evidence; procurement/cost sections are unavailable to them. Overview filters apply to the displayed window of up to 100 permitted analyses and 100 workflows, not company-wide totals. Foreground updates run every five seconds and preserve form inputs. A changed proposal disables approval until an explicit detail refresh/review.
+
+Open an analysis to inspect its exact date/plan hash, recorded tool attempts/timings and PDF references. Follow its linked workflow to inspect proposal, decision and receipt events, or return to the current analysis snapshot. The single confirm button uses Temporal when configured and the bounded local runner otherwise. Trace data is status/dependency/count metadata, not the model's private reasoning.
+
+Planner calls are measured locally starting with migration 0006. The own-user usage report covers at most 1,000 permitted calls over 30 days, with explicit unknown usage/cost coverage and captured price sources. No provider price is assumed. Set `MODEL_PRICING_JSON` only if you have appropriate documented USD input/output rates; the format is in [Phase 5 review](docs/PHASE_5_REVIEW.md). Estimates are captured with the call and are **not invoices**. Offline demo calls explicitly cost zero; missing live prices remain unavailable. Old operation snapshots and refreshed analyses do not fabricate extra calls.
+
+Read APIs: `GET /v1/dashboard`, `/v1/operations/{id}/trace`, `/v1/workflows/{id}/timeline`, `/v1/telemetry/planner?operation_id=...`. Existing owner, tenant, assignment and live document ACL checks apply. No raw goals, provider bodies, credentials or private thoughts are stored in the new telemetry table.
 
 ## Limits
 

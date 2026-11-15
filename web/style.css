@@ -10,3 +10,5 @@ main{max-width:1440px}.intro{padding:12px 0 24px}.workspace-nav{display:flex;gap
 @media(min-width:1050px){#workspace{display:grid;grid-template-columns:210px minmax(0,1fr);gap:24px;align-items:start}#workspace>.toolbar{grid-column:1/-1}.workspace-nav{position:sticky;top:20px;flex-direction:column;margin:0}.workspace-nav button{width:100%}.workspace-content .card{padding:25px}}
 @media(max-width:850px){.dashboard-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}#agent-trace{grid-template-columns:1fr}.workspace-nav{gap:5px}.workspace-nav button{padding:8px 12px;font-size:13px}}
 @media(max-width:450px){.dashboard-metrics{grid-template-columns:1fr}.workspace-panel .controls{align-items:stretch}.workspace-panel .controls>*{width:100%}.workspace-panel .card{padding:16px}.workspace-panel th,.workspace-panel td{padding:12px 8px}.intro h1{font-size:29px}.workspace-nav button{flex:1 1 40%}.evidence-text{padding:12px}}
+
+#plan-metadata{overflow-wrap:anywhere} .trace-card{min-width:0;overflow-wrap:anywhere}

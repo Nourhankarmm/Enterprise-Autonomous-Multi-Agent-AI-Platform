@@ -2,27 +2,45 @@
 let token = null;
 const el = id => document.getElementById(id);
 const labels = {HIGH:'عالية', MEDIUM:'متوسطة', LOW:'منخفضة'};
+const errorMessages={
+  'Current permission required':'تغيّرت صلاحية الحساب. سجّل الدخول بحساب مخوّل.',
+  'Evidence access changed; this result is unavailable':'تغيّرت صلاحية الدليل؛ هذه النتيجة لم تعد متاحة.',
+  'Temporal owns this operation; use its workflow controls':'افتح المتابعة المرتبطة للتحكم في هذه العملية.',
+  'Choose an independent active approver from your company':'اختر موافقًا مستقلًا ومفعّلًا من شركتك قبل تجميد المسودة.',
+  'Complete supported findings are required':'استكمل الأدلة وحدّث التحليل قبل تجهيز رسالة المتابعة.',
+  'Proposal is stale or no longer waiting':'تغيّرت المسودة أو حالة المتابعة. حدّث التفاصيل وراجع الإصدار الجديد.',
+  'Workflow is terminal':'انتهت هذه المتابعة؛ ابدأ عملية جديدة لإجراء متابعة أخرى.',
+  'Source data changed; refresh evidence and request new approval':'تغيّرت بيانات المصدر. حدّث الأدلة وجهّز مسودة لموافقة جديدة.',
+  'Start the Temporal development stack first':'التشغيل المستمر غير متاح الآن؛ شغّل خدمة Temporal والعامل.',
+  'Wait for the requested evidence refresh before drafting':'انتظر اكتمال تحديث الأدلة قبل تجهيز مسودة جديدة.'
+};
 el('as-of').value = new Date().toLocaleDateString('en-CA');
 function clearWorkspace() { el('rows').replaceChildren(); el('metrics').replaceChildren(); el('identity').textContent=''; }
 function loggedOut() { clearDashboard(); clearWorkflowWorkspace();currentIdentity=null; clearDocumentWorkspace();currentOperation=null;el('operation-detail').hidden=true;el('operation-history').replaceChildren();token=null; clearWorkspace(); el('workspace').hidden=true; el('login-panel').hidden=false; }
 async function api(path, options={}) {
-  const response=await fetch(path, {...options, headers:{...(options.body instanceof FormData?{}:{'Content-Type':'application/json'}),...(options.headers??{}), ...(token?{Authorization:`Bearer ${token}`}:{})}});
+  const requestToken=token;
+  const response=await fetch(path, {...options, headers:{...(options.body instanceof FormData?{}:{'Content-Type':'application/json'}),...(options.headers??{}), ...(requestToken?{Authorization:`Bearer ${requestToken}`}:{})}});
+  if(requestToken!==token&&path!=='/v1/auth/login')throw new Error('تغيرت الجلسة؛ تجاهلنا الرد السابق.');
   if (!response.ok) {
     if(response.status===401 && token) loggedOut();
-    if(response.status===403 || (response.status===404 && path.startsWith('/v1/documents/'))){clearWorkflowWorkspace();clearDocumentWorkspace();currentOperation=null;el('operation-detail').hidden=true;}
+    if(response.status===403 || (response.status===404 && path.startsWith('/v1/documents/'))){clearDashboard();clearWorkflowWorkspace();clearDocumentWorkspace();currentOperation=null;el('operation-detail').hidden=true;}
     const errorBody=await response.json().catch(()=>({}));
-    if(response.status!==401 && typeof errorBody.detail==='string') throw new Error(errorBody.detail);
+    if(response.status!==401 && typeof errorBody.detail==='string') throw new Error(errorMessages[errorBody.detail]??errorBody.detail);
     throw new Error(response.status===401?'بيانات الدخول غير صحيحة أو انتهت الجلسة.':response.status===403?'حسابك لا يملك صلاحية عرض المشتريات.':'تعذر تحميل البيانات. حاول مرة أخرى.');
   }
-  return response.status===204?null:response.json();
+  const data=response.status===204?null:await response.json();
+  if(requestToken!==token&&path!=='/v1/auth/login')throw new Error('تغيرت الجلسة؛ تجاهلنا الرد السابق.');
+  return data;
 }
 function cell(row,text) {const td=document.createElement('td'); td.textContent=text;row.append(td);return td;}
 async function load() {
+  const requestToken=token;
   el('message').textContent='جارٍ تحميل التحليل…'; el('refresh').disabled=true; clearWorkspace();
   try {
-    const me=await api('/v1/me');el('identity').textContent=`الشركة: ${me.tenant_id} · الدور: ${me.role}`;
+    const me=await api('/v1/me');if(requestToken!==token)return;el('identity').textContent=`الشركة: ${me.tenant_id} · الدور: ${me.role}`;
     if(!el('as-of').value) throw new Error('اختر تاريخ التحليل.');
     const {items}=await api(`/v1/procurement/assessment?as_of=${encodeURIComponent(el('as-of').value)}`);
+    if(requestToken!==token)return;
     for(const item of items) {
       const row=document.createElement('tr');
       for(const value of [item.order_id,item.supplier_id,item.project_id,item.remaining_quantity,item.late_days,item.beyond_grace_days??'غير معلوم']) cell(row,value);
@@ -95,7 +113,7 @@ el('reload-operations').addEventListener('click',()=>loadOperations().catch(erro
 let currentDocument=null;
 const documentStateLabels={EXTRACTED:'بنود مستخرجة تنتظر المراجعة',READY:'مصدر مُراجع',CONFLICT:'تعارض بين البنود',NEEDS_REVIEW:'يلزم توضيح البنود',NEEDS_OCR:'يلزم OCR؛ الصورة لا تكفي للتحليل'};
 const documentReasons={NO_EXTRACTABLE_TEXT:'صفحة واحدة أو أكثر لا تحتوي نصًا قابلًا للاستخراج. OCR غير متاح في هذه النسخة.',SUPPLIER_LINK_CONFLICT:'رقم المورد داخل الملف لا يطابق المورد المحدد.',CONTRADICTORY_CLAUSES:'المستند يحتوي قيمًا متعارضة. ارفع إصدارًا موضحًا قبل اعتماده.',INVALID_DATE:'تاريخ التسليم داخل المستند غير صالح.',GRACE_NOT_EXPLICIT:'لم نجد بند سماح صريحًا بالصيغة المدعومة. لا نفترض أن السماح صفر.',BUSINESS_CALENDAR_REQUIRED:'البند يستخدم أيام عمل؛ يلزم تقويم شركة غير متاح حاليًا.',GRACE_OUTSIDE_DEMO_POLICY:'قيمة السماح خارج حدود التجربة وتحتاج مراجعة.',EXPLICIT_CLAUSES_PENDING_REVIEW:'راجع الاقتباسات وربط المورد ونطاق الطلبات قبل اعتماد هذا المصدر.'};
-function clearDocumentWorkspace(){currentDocument=null;el('document-detail').hidden=true;el('evidence-viewer').hidden=true;el('evidence-text').textContent='';el('document-list').replaceChildren();el('document-search-results').replaceChildren();}
+function clearDocumentWorkspace(){for(const id of ['document-facts','document-readers'])el(id).replaceChildren();for(const id of ['document-name','document-explanation','document-scope','evidence-title'])el(id).textContent='';currentDocument=null;el('document-detail').hidden=true;el('evidence-viewer').hidden=true;el('evidence-text').textContent='';el('document-list').replaceChildren();el('document-search-results').replaceChildren();}
 async function loadDocumentWorkspace(){try{await loadDocuments();}catch(error){el('message').textContent=error.message;}}
 async function loadDocuments(){const requestToken=token;const {items}=await api('/v1/documents');if(token!==requestToken)return;el('document-list').replaceChildren();if(!items.length){el('document-list').textContent='لا توجد مستندات مسموحة بعد.';return;}for(const doc of items){const button=document.createElement('button');button.className='secondary';button.textContent=`${doc.title} · ${doc.supplier_id} · إصدار ${doc.version} · ${documentStateLabels[doc.state]??doc.state}`;button.addEventListener('click',()=>documentAction(()=>api(`/v1/documents/${doc.id}`),'جارٍ تحميل المستند…'));el('document-list').append(button);}}
 function evidenceCard(citation,label){const card=document.createElement('div');card.className='evidence-card';const heading=document.createElement('strong');heading.textContent=label;const quote=document.createElement('blockquote');quote.dir='auto';quote.textContent=citation.quote;const button=document.createElement('button');button.className='secondary';button.textContent=`عرض الصفحة ${citation.page}`;button.addEventListener('click',()=>showEvidence(citation).catch(error=>el('message').textContent=error.message));card.append(heading,quote,button);return card;}
