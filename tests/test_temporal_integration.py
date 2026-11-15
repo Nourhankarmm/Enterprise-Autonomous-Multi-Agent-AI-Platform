@@ -4,6 +4,7 @@ from datetime import date,datetime,timezone,timedelta
 from pathlib import Path
 from types import SimpleNamespace
 from contextlib import ExitStack
+from unittest.mock import patch
 from sqlalchemy import insert,select,func
 from temporalio.client import Client
 from temporalio.worker import Worker,Replayer
@@ -12,10 +13,12 @@ from platform_api.database import engine_for,users,sandbox_messages
 from platform_api.agents.service import OperationService
 from platform_api.agents.planner import DemoPlanner
 from platform_api.agents.schemas import GoalInput,DEMO_GOAL
+from platform_api.agents.schemas import canonical_hash
 from platform_api.workflows.service import WorkflowService
 from platform_api.workflows.schemas import StartInput,DraftInput,DecisionInput,CommandInput
 from platform_api.workflows.worker import Activities
 from platform_api.workflows.temporal import ProcurementWorkflow
+from platform_api.workflows.adapter import UnknownOutcome
 from platform_api.documents.schemas import DocumentInput,ReviewInput
 
 @unittest.skipUnless(os.getenv('TEST_TEMPORAL_ADDRESS'),'Set TEST_TEMPORAL_ADDRESS to run actual Temporal acceptance')
@@ -35,9 +38,9 @@ class TemporalIntegrationTests(unittest.IsolatedAsyncioTestCase):
             run_id=service.reserve(owner,op['id'],StartInput(version=op['plan_version'],plan_hash=op['plan_hash']))
             queue='acceptance-'+uuid.uuid4().hex
             client=await Client.connect(os.environ['TEST_TEMPORAL_ADDRESS'])
-            async def wait(state):
+            async def wait(state,target=None):
                 for _ in range(150):
-                    row=await asyncio.to_thread(service.get,owner,run_id)
+                    row=await asyncio.to_thread(service.get,owner,target or run_id)
                     if row['state']==state:return row
                     if row['state']=='FAILED':self.fail(str(row))
                     await asyncio.sleep(.2)
@@ -77,6 +80,25 @@ class TemporalIntegrationTests(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(await asyncio.wait_for(handle.result(),40),'COMPLETED')
                 row=service.get(owner,run_id);self.assertEqual(row['execution']['state'],'SUCCEEDED')
                 with engine.connect() as db:self.assertEqual(db.execute(select(func.count()).select_from(sandbox_messages)).scalar_one(),1)
+                # Cancellation must retain reconciliation until an unknown provider outcome is resolved.
+                next_op=await asyncio.to_thread(OperationService(engine,path,DemoPlanner()).create,owner,
+                    GoalInput(goal=DEMO_GOAL,as_of=date(2026,11,14)))
+                next_id=service.reserve(owner,next_op['id'],StartInput(version=1,plan_hash=next_op['plan_hash']))
+                second=await client.start_workflow(ProcurementWorkflow.run,{'tenant_id':'alpha','id':next_id,'poll_seconds':1},id=next_id,task_queue=queue)
+                await wait('WAITING_APPROVAL',next_id)
+                action=service.draft(owner,next_id,DraftInput(request_id=uuid.uuid4().hex,supplier_id='S1',subject='Follow-up',body='Please confirm delivery.'))
+                real_send=service.adapter.send
+                with patch.object(service.adapter,'send',side_effect=UnknownOutcome()):
+                    service.decision(approver,action['id'],DecisionInput(request_id=uuid.uuid4().hex,action_hash=action['action_hash'],decision='approve'))
+                    await wait('RECONCILING',next_id)
+                    service.command(owner,next_id,CommandInput(request_id=uuid.uuid4().hex),'cancel')
+                    await wait('CANCEL_REQUESTED',next_id)
+                    key=canonical_hash({'tenant':'alpha','logical_action':next_id+'/followup'})
+                    real_send(key,action['payload'],action['action_hash'])
+                    self.assertEqual(await asyncio.wait_for(second.result(),25),'CANCELLED')
+                cancelled=service.get(owner,next_id)
+                self.assertEqual(cancelled['result']['external_actions'],1)
+                self.assertTrue(cancelled['execution']['receipt']['accepted'])
             history=await handle.fetch_history()
             await Replayer(workflows=[ProcurementWorkflow]).replay_workflow(history)
             latest=await client.get_workflow_handle(run_id).fetch_history()

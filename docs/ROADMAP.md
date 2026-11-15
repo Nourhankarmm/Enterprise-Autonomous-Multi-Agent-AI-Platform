@@ -36,7 +36,7 @@ Solo developer; part-time or full-time pace changes duration. Estimate: **21Ã¢â‚
 - [x] M1: Tenant-scoped API and mock ERP with local auth stub (see PHASE_1_REVIEW.md; Docker Compose and GitHub CI verified)
 - [x] M2: Validated agent plans and execution traces (real Gemini acceptance verified; see PHASE_2_REVIEW.md)
 - [x] M3: Citation-backed procurement analysis (reviewed PDF clauses, ACL-filtered lexical retrieval, real Gemini acceptance and PostgreSQL/Compose CI verified; see PHASE_3_REVIEW.md)
-- [ ] M4: Durable approvals and safe side effects
+- [x] M4: Durable approvals and safe side effects (Temporal lifecycle/replay, assigned independent approval and idempotent sandbox-mail recovery; see PHASE_4_REVIEW.md; no real email integration)
 - [ ] M5: Usable operations dashboard
 - [ ] M6: Published evaluation report and reproducible demo
 
