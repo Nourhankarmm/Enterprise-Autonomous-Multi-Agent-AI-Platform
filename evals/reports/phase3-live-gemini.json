@@ -1,0 +1,36 @@
+{
+  "verified_at": "2026-11-15T02:21:16.086355+00:00",
+  "provider": "gemini",
+  "model": "gemini-3.1-flash-lite",
+  "operation_id": "4149faf8-5524-49be-9e69-9004c918aaa8",
+  "state": "COMPLETED",
+  "analysis_date": "2026-11-14",
+  "successful_tasks": 5,
+  "source_mode": "reviewed_pdf",
+  "order_id": "PO-A1",
+  "late_days": 13,
+  "beyond_grace_days": 8,
+  "risk": "HIGH",
+  "document_version": 1,
+  "document_checksum": "9ab6e968e621bbcd3ef8e422bd150b5b7cf2fd15ff849e084a1d0e0de6692fb2",
+  "citations": [
+    {
+      "page": 2,
+      "quote": "Grace period: 5 calendar days.",
+      "start": 129,
+      "end": 159
+    },
+    {
+      "page": 2,
+      "quote": "Delivery due date: 2026-11-01",
+      "start": 99,
+      "end": 128
+    }
+  ],
+  "usage": {
+    "input_tokens": 388,
+    "output_tokens": 404
+  },
+  "external_actions": 0,
+  "pdf_text_sent_to_provider": false
+}

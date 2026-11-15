@@ -37,6 +37,9 @@ jobs:
       - run: python -m unittest discover -s tests -p test_phase_two.py -v
         env:
           TEST_DATABASE_URL: postgresql+psycopg://platform:ci-only-password@localhost:5432/platform_test
+      - run: python -m unittest discover -s tests -p test_phase_three.py -v
+        env:
+          TEST_DATABASE_URL: postgresql+psycopg://platform:ci-only-password@localhost:5432/platform_test
       - run: node --check web/app.js
       - run: docker compose config --quiet
         env:

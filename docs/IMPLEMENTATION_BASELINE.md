@@ -19,3 +19,8 @@ Reviewed typed plans, optional OpenAI structured planner, explicitly labelled of
 
 
 Gemini follow-up (15 November 2026): free-tier adapter and hidden-key launcher implemented; a real supplier-scoped Gemini plan passed review, validation and LangGraph execution with expected PO-A1 results. Current suite has 58 methods. Live Gemini proof is in `evals/reports/phase2-live-gemini.json`; M2 is now checked in the roadmap. OpenAI live verification remains unclaimed.
+
+
+## Phase 3 update — 15 November 2026
+
+PDF upload and bounded extraction, immutable versions/pages/chunks, explicit clause review/publication, document-owner ACLs and same-company sharing, lexical BM25 retrieval, exact page citations and evidence-aware procurement analysis are implemented. Cached operation outputs and current executions recheck document permissions/source identity; conflicts and missing evidence remain explicit. The suite has 87 methods, including 29 Phase 3 methods. A real Gemini plan used a reviewed page-2 PDF clause with the expected result; see `evals/reports/phase3-live-gemini.json`. The detailed scope and hardening limits are in [Phase 3 review](PHASE_3_REVIEW.md). Earlier pending-document statements describe previous baselines.

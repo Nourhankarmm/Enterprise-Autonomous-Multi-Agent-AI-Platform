@@ -7,8 +7,8 @@ Trust boundaries: browser/API, API/database, workflow/agent, agent/tool gateway,
 | Threat | Required control | Golden case / verification |
 |---|---|---|
 | Tenant header/ID spoofing | Tenant from verified identity; scoped queries and composite ownership constraints | B12; current API scoping tests |
-| Document ACL bypass | Filter before ranking and before content return, including citations | B13; future retrieval tests |
-| Malicious contract instructions | Treat text as evidence, validate all tool arguments through gateway | B14; future adversarial test |
+| Document ACL bypass | Filter before ranking and before content return, including citations | B13; Phase 3 ACL/search/page/download/cached-operation revocation tests |
+| Malicious contract instructions | Treat text as evidence, validate all tool arguments through gateway | B14; Phase 3 hostile-PDF-text test; document text is not sent to the planner |
 | Self-approval or forged role | Independent approver and server policy checks | B07/B11; future policy tests |
 | Approval replay/payload substitution | Exact canonical hash, expiry and evidence version binding | B08/B09/B10 |
 | Duplicate delivery / concurrent workers | Stable key, unique ledger constraint, provider reconciliation | B16/B17 |
@@ -20,3 +20,6 @@ Trust boundaries: browser/API, API/database, workflow/agent, agent/tool gateway,
 | Sensitive financial action | No payment/account-change connector in MVP; policy deny | B20 |
 
 Audit is append-only at the application interface with restricted writer permissions planned; current logs are not immutable. Production controls require separate review, retention/backups and incident response procedures. Residual risks include imperfect extraction, incomplete source data and external provider limitations; uncertainty must be surfaced rather than hidden.
+
+
+Phase 3 controls: bounded multipart/PDF parsing in a credential-stripped child process, immutable file/page checksums, exact reviewed clause spans, ACL predicates before ranking plus checks before result return, current access checks on stored operation output, and source-version changes blocking report completion. The child is not a complete OS sandbox; malicious-parser exploits, antivirus/quarantine, DB-owner tampering, semantic retrieval quality and production isolation remain residual risks. Source publication requires its owner, but does not verify a legal signature or authorize an external action.
