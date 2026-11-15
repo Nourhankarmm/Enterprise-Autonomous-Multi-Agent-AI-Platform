@@ -131,11 +131,23 @@ class PhaseSevenTests(unittest.TestCase):
         from reportlab.lib.utils import ImageReader
         candidates=[Path('C:/Windows/Fonts/arial.ttf'),Path('/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf')]
         font=ImageFont.truetype(str(next(p for p in candidates if p.exists())),58)
-        image=Image.new('RGB',(1654,2339),'white');draw=ImageDraw.Draw(image)
-        for index,line in enumerate(TEXT.splitlines()):draw.text((100,180+index*120),line,fill='black',font=font)
-        output=io.BytesIO();pdf=canvas.Canvas(output,pagesize=(595,842));pdf.drawImage(ImageReader(image),0,0,width=595,height=842);pdf.save()
-        parsed=extract_ocr(output.getvalue());self.assertIn('Grace period: 5 calendar days',parsed['pages'][0])
-        source=self.upload(data=output.getvalue()).json();self.assertEqual(source['state'],'NEEDS_OCR')
+        def scan(lines):
+            image=Image.new('RGB',(1654,2339),'white');draw=ImageDraw.Draw(image)
+            for index,line in enumerate(lines):draw.text((100,180+index*120),line,fill='black',font=font)
+            output=io.BytesIO();pdf=canvas.Canvas(output,pagesize=(595,842));pdf.drawImage(ImageReader(image),0,0,width=595,height=842);pdf.save()
+            image.close();return output.getvalue()
+        original=scan(TEXT.splitlines());parsed=extract_ocr(original)
+        self.assertIn('Grace period: 5 calendar days',parsed['pages'][0])
+        source=self.upload(data=original).json();self.assertEqual(source['state'],'NEEDS_OCR')
+        response=self.create(source);self.assertEqual(response.status_code,201,response.text);first=response.json()
+        # Mixed-language OCR can read S1 as 1 despite high confidence. Preserve that failure and block it.
+        if first['extraction']['supplier_link']=='EXPLICIT' and any(f['field']=='supplier_id' and f['value']!='S1' for f in first['extraction']['facts']):
+            self.assertIn(first['state'],('CONFLICT','NEEDS_REVIEW'))
+            self.assertEqual(self.review(first,ocr_compared_to_original=True).status_code,409)
+        # A separately labelled fixture uses explicit manual supplier linking, without a printed supplier ID.
+        manual=scan(TEXT.splitlines()[1:]);source=self.upload(data=manual).json()
         response=self.create(source);self.assertEqual(response.status_code,201,response.text);doc=response.json()
         self.assertEqual(doc['state'],'EXTRACTED',doc['extraction'])
+        self.assertEqual(doc['extraction']['supplier_link'],'MANUAL_REVIEW_REQUIRED')
+        self.assertEqual(doc['extraction']['grace_days'],5);self.assertEqual(doc['extraction']['due_date'],'2026-11-01')
         self.assertEqual(self.review(doc,ocr_compared_to_original=True).status_code,200)

@@ -20,4 +20,6 @@ Only one OCR process tree runs per API process; concurrent heavy requests receiv
 
 ## Verification
 
+Observed failure: Tesseract 5.5.0 with `ara+eng` read the synthetic printed supplier ID `S1` as `1`, with a minimum word confidence above 80. The supplier-conflict gate correctly blocked publication. This case remains in actual-engine acceptance; a separate fixture omits the printed supplier ID and explicitly requires human supplier linking for its successful review path. No identifier correction is inferred from the expected result. This illustrates why word confidence alone is insufficient.
+
 `python -m unittest discover -s tests -p test_phase_seven.py -v` exercises immutable versions, owner/tenant access, tampering, stale revisions, unavailable engines, low-confidence blocks, explicit comparison, reviewed cited assessment, TSV validation, pixel limits and process-tree timeout behavior. Local tests without Tesseract skip actual recognition; CI sets `REQUIRE_OCR=1`, installs the engine/languages and must recognize a raster-only synthetic English contract through the full OCR/review path on SQLite and PostgreSQL. This test is a defined fixture, not a broad OCR accuracy benchmark. Existing security, document, graph and Temporal regressions also remain required.
