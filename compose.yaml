@@ -37,10 +37,46 @@ services:
       OPENAI_MODEL: ${OPENAI_MODEL:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       DATABASE_URL: postgresql+psycopg://platform:${POSTGRES_PASSWORD}@db:5432/platform
+      TEMPORAL_ADDRESS: temporal:7233
+      WORKFLOW_POLL_SECONDS: ${WORKFLOW_POLL_SECONDS:-15}
     ports:
       - "127.0.0.1:${API_BIND_PORT:-8000}:8000"
     depends_on:
       seed:
         condition: service_completed_successfully
+      temporal:
+        condition: service_healthy
+  temporal-init:
+    image: temporalio/temporal:1.10.0
+    user: "0:0"
+    entrypoint: ["sh", "-c"]
+    command: ["chown 1000:1000 /data"]
+    volumes:
+      - temporal_data:/data
+  temporal:
+    image: temporalio/temporal:1.10.0
+    command: ["server", "start-dev", "--ip", "0.0.0.0", "--db-filename", "/data/temporal.db", "--log-level", "error"]
+    volumes:
+      - temporal_data:/data
+    depends_on:
+      temporal-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "temporal", "operator", "cluster", "health", "--address", "127.0.0.1:7233"]
+      interval: 3s
+      timeout: 5s
+      retries: 30
+  worker:
+    build: .
+    environment:
+      DATABASE_URL: postgresql+psycopg://platform:${POSTGRES_PASSWORD}@db:5432/platform
+      TEMPORAL_ADDRESS: temporal:7233
+    command: ["python", "-m", "platform_api.workflows.worker"]
+    depends_on:
+      seed:
+        condition: service_completed_successfully
+      temporal:
+        condition: service_healthy
 volumes:
   postgres_data:
+  temporal_data:

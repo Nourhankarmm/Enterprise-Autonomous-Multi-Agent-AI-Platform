@@ -13,7 +13,7 @@ def main():
     parser.add_argument('command', choices=['seed', 'create-user'])
     parser.add_argument('--username')
     parser.add_argument('--tenant', choices=['alpha', 'beta'])
-    parser.add_argument('--role', choices=['manager', 'analyst', 'auditor'], default='analyst')
+    parser.add_argument('--role', choices=['manager', 'analyst', 'approver', 'auditor'], default='analyst')
     args = parser.parse_args()
     path = os.getenv('DATABASE_URL') or os.getenv('DATABASE_PATH', '.data/phase1.db')
     if args.command == 'seed':

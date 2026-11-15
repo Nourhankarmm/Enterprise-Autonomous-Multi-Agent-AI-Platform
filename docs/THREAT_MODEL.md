@@ -9,11 +9,11 @@ Trust boundaries: browser/API, API/database, workflow/agent, agent/tool gateway,
 | Tenant header/ID spoofing | Tenant from verified identity; scoped queries and composite ownership constraints | B12; current API scoping tests |
 | Document ACL bypass | Filter before ranking and before content return, including citations | B13; Phase 3 ACL/search/page/download/cached-operation revocation tests |
 | Malicious contract instructions | Treat text as evidence, validate all tool arguments through gateway | B14; Phase 3 hostile-PDF-text test; document text is not sent to the planner |
-| Self-approval or forged role | Independent approver and server policy checks | B07/B11; future policy tests |
-| Approval replay/payload substitution | Exact canonical hash, expiry and evidence version binding | B08/B09/B10 |
-| Duplicate delivery / concurrent workers | Stable key, unique ledger constraint, provider reconciliation | B16/B17 |
-| Uncertain provider response | Reconciliation, no blind resend | B17 |
-| Crash loses workflow state | Durable history; idempotent projection and dispatch | B18 |
+| Self-approval or forged role | Independent approver and server policy checks | B07/B11; Phase 4 live-role and separation tests |
+| Approval replay/payload substitution | Exact canonical hash, expiry and evidence version binding | B08/B09/B10; Phase 4 revision, tamper, expiry and live evidence tests |
+| Duplicate delivery / concurrent workers | Stable key, unique ledger constraint, provider reconciliation | B16/B17; Phase 4 concurrent dispatch and one-message sandbox acceptance |
+| Uncertain provider response | Reconciliation, no blind resend | B17; Phase 4 unknown-outcome test |
+| Crash loses workflow state | Durable history; idempotent projection and dispatch | B18; real Temporal replay/restart and sandbox accept-before-ledger crash test |
 | Secret/PII leak in traces | Redaction, restricted trace ACL, no raw secrets in model context | Inspect emitted telemetry before release |
 | Hostile files and resource exhaustion | Size/type limits, sandbox parser, bounded task/token/retry budgets | B20; later parser/fuzz tests |
 | SQL/tool argument escalation | Parameterized SQL, typed tool schemas, allowlisted capabilities | Current SQL reads; future tool contract tests |

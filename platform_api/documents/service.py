@@ -53,7 +53,7 @@ class DocumentService:
     def readers(self,actor):
         with self.engine.connect() as db:
             return {'items':[dict(r) for r in db.execute(select(users.c.id,users.c.username).where(
-                users.c.tenant_id==actor.tenant_id,users.c.active.is_(True),users.c.role.in_(['manager','analyst']),
+                users.c.tenant_id==actor.tenant_id,users.c.active.is_(True),users.c.role.in_(['manager','analyst','approver']),
                 users.c.id!=actor.subject).limit(100)).mappings()]}
 
     def upload(self,actor,metadata,data):
@@ -114,7 +114,7 @@ class DocumentService:
             if doc['revision']!=body.revision:raise DocumentError(409,'Document revision changed')
             if body.readers:
                 valid=set(db.execute(select(users.c.id).where(users.c.tenant_id==actor.tenant_id,
-                    users.c.id.in_(body.readers),users.c.active.is_(True),users.c.role.in_(['manager','analyst']))).scalars())
+                    users.c.id.in_(body.readers),users.c.active.is_(True),users.c.role.in_(['manager','analyst','approver']))).scalars())
                 if valid!=set(body.readers):raise DocumentError(422,'Readers must be active procurement users in your company')
             changed=db.execute(update(documents).where(documents.c.tenant_id==actor.tenant_id,documents.c.id==doc_id,
                 documents.c.owner_id==actor.subject,documents.c.revision==body.revision).values(revision=body.revision+1))

@@ -12,6 +12,14 @@ def register_agent_routes(app,engine,path,reader,planner=None):
     service=OperationService(engine,path,planner)
     app.state.operations=service
 
+    def legacy_only(actor,operation_id):
+        from sqlalchemy import select,or_
+        from ..database import workflow_runs
+        with engine.connect() as db:
+            if db.execute(select(workflow_runs.c.id).where(workflow_runs.c.tenant_id==actor.tenant_id,
+                or_(workflow_runs.c.operation_id==operation_id,workflow_runs.c.snapshot_id==operation_id))).first():
+                raise OperationError(409,'Temporal owns this operation; use its workflow controls')
+
     @app.exception_handler(OperationError)
     async def operation_error(request,error):return JSONResponse(status_code=error.status,content={'detail':error.detail})
 
@@ -47,14 +55,21 @@ def register_agent_routes(app,engine,path,reader,planner=None):
         return service.events(actor,operation_id,after,limit)
 
     @app.post('/v1/operations/{operation_id}/revise')
-    def revise(operation_id:str,body:Revision,actor=Depends(reader)):return service.revise(actor,operation_id,body)
+    def revise(operation_id:str,body:Revision,actor=Depends(reader)):
+        legacy_only(actor,operation_id)
+        return service.revise(actor,operation_id,body)
 
     @app.post('/v1/operations/{operation_id}/confirm')
     def confirm(operation_id:str,body:PlanConfirmation,actor=Depends(reader)):
+        legacy_only(actor,operation_id)
         return service.execute(actor,operation_id,body)
 
     @app.post('/v1/operations/{operation_id}/resume')
-    def resume(operation_id:str,actor=Depends(reader)):return service.execute(actor,operation_id,resume=True)
+    def resume(operation_id:str,actor=Depends(reader)):
+        legacy_only(actor,operation_id)
+        return service.execute(actor,operation_id,resume=True)
 
     @app.post('/v1/operations/{operation_id}/cancel')
-    def cancel(operation_id:str,actor=Depends(reader)):return service.cancel(actor,operation_id)
+    def cancel(operation_id:str,actor=Depends(reader)):
+        legacy_only(actor,operation_id)
+        return service.cancel(actor,operation_id)

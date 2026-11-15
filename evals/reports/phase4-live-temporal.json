@@ -1,0 +1,20 @@
+{
+  "verified_at": "2026-11-15T13:25:04.934762+00:00",
+  "workflow_id": "f7a9ed05-401e-5ccf-9cca-2410d9fb7633",
+  "state": "COMPLETED",
+  "planner": "demo",
+  "connector": "sandbox-mail",
+  "independent_approval": true,
+  "assigned_approver_verified": true,
+  "proposal_revision": 1,
+  "action_hash": "fdfa4439615e825361678676ef180cdd01f62db3a1818ab2346af3ddcdf014d5",
+  "evidence_hash": "b67deae9f9be65fd0bed55b9335a3a23d823320e0a32ccec9801d787652d52f0",
+  "provider_messages": 1,
+  "receipt": {
+    "provider": "sandbox",
+    "message_id": "sandbox-a394e1ae-a6b3-44a4-a2e3-21c96b7f5bdf",
+    "accepted": true
+  },
+  "real_emails_sent": 0,
+  "browser_owner_draft_approver_acceptance": true
+}

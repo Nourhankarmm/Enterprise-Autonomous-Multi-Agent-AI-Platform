@@ -7,7 +7,7 @@ import uuid
 from datetime import datetime, timezone, date
 from typing import TypedDict, Annotated
 from operator import add
-from sqlalchemy import select, insert, update, delete, func
+from sqlalchemy import select, insert, update, delete, func,exists,or_
 from langgraph.graph import StateGraph, START, END
 from langsmith import tracing_context
 from .schemas import Plan, PlanRejected, validate_proposal, plan_hash
@@ -15,7 +15,7 @@ from .planner import configured_planner
 from .gateway import ToolGateway, TransientToolError
 from ..documents.service import DocumentService
 from ..documents.schemas import DocumentError
-from ..database import operations, agent_tasks, operation_events, audit_events, users
+from ..database import operations, agent_tasks, operation_events, audit_events, users,workflow_runs
 
 class OperationError(Exception):
     def __init__(self,status,detail):self.status,self.detail=status,detail
@@ -37,6 +37,10 @@ class OperationService:
         return (operations.c.tenant_id==actor.tenant_id,operations.c.id==operation_id,
                 operations.c.requester_id==actor.subject)
 
+    def not_temporal_owned(self,actor,operation_id):
+        return ~exists(select(workflow_runs.c.id).where(workflow_runs.c.tenant_id==actor.tenant_id,
+            or_(workflow_runs.c.operation_id==operation_id,workflow_runs.c.snapshot_id==operation_id)))
+
     def event(self,db,actor,operation_id,kind,task_id=None,details=None):
         details=details or {}
         db.execute(insert(operation_events).values(tenant_id=actor.tenant_id,operation_id=operation_id,
@@ -44,8 +48,10 @@ class OperationService:
         db.execute(insert(audit_events).values(id=str(uuid.uuid4()),tenant_id=actor.tenant_id,
             actor_id=actor.subject,action=kind,resource=operation_id,occurred_at=now_iso(),details=details))
 
-    def _get(self,db,actor,operation_id):
-        op=db.execute(select(operations).where(*self.scope(actor,operation_id))).mappings().first()
+    def _get(self,db,actor,operation_id,lock=False):
+        statement=select(operations).where(*self.scope(actor,operation_id))
+        if lock:statement=statement.with_for_update()
+        op=db.execute(statement).mappings().first()
         if op is None:raise OperationError(404,'Operation not found')
         return dict(op)
 
@@ -110,7 +116,9 @@ class OperationService:
             raise OperationError(409,'Plan version/hash changed; review the latest plan')
         plan,digest,result=self._plan(body.goal,body.as_of,old['plan_version']+1,actor)
         with self.engine.begin() as db:
+            self._get(db,actor,operation_id,lock=True)
             changed=db.execute(update(operations).where(*self.scope(actor,operation_id),
+                self.not_temporal_owned(actor,operation_id),
                 operations.c.state==old['state'],operations.c.plan_hash==old['plan_hash'],
                 operations.c.replans==old['replans']).values(goal=body.goal,
                 state='PLANNED' if plan.proposal.disposition=='ready' else 'WAITING_CLARIFICATION',
@@ -125,11 +133,12 @@ class OperationService:
 
     def cancel(self,actor,operation_id):
         with self.engine.begin() as db:
-            op=self._get(db,actor,operation_id)
+            op=self._get(db,actor,operation_id,lock=True)
             if op['state'] not in {'PLANNED','WAITING_CLARIFICATION','WAITING_DOCUMENT','RUNNING','CANCEL_REQUESTED'}:
                 raise OperationError(409,'Terminal operation cannot be cancelled')
             target='CANCEL_REQUESTED' if op['state'] in {'RUNNING','CANCEL_REQUESTED'} and (op['lease_until'] or 0)>time.time() else 'CANCELLED'
-            changed=db.execute(update(operations).where(*self.scope(actor,operation_id),operations.c.state==op['state'])
+            changed=db.execute(update(operations).where(*self.scope(actor,operation_id),operations.c.state==op['state'],
+                self.not_temporal_owned(actor,operation_id))
                 .values(state=target,updated_at=now_iso()))
             if changed.rowcount!=1:raise OperationError(409,'Operation changed')
             if target=='CANCELLED':
@@ -139,10 +148,10 @@ class OperationService:
             self.event(db,actor,operation_id,'operation.cancel_requested' if target=='CANCEL_REQUESTED' else 'operation.cancelled')
         return self.get(actor,operation_id)
 
-    def execute(self,actor,operation_id,confirmation=None,resume=False):
+    def execute(self,actor,operation_id,confirmation=None,resume=False,durable=False):
         lease=str(uuid.uuid4());clock=time.time()
         with self.engine.begin() as db:
-            op=self._get(db,actor,operation_id)
+            op=self._get(db,actor,operation_id,lock=True)
             plan=Plan.model_validate(op['plan']);validate_proposal(plan.proposal)
             if plan_hash(plan,actor.tenant_id,actor.subject)!=op['plan_hash']:
                 raise OperationError(409,'Stored plan integrity check failed')
@@ -153,6 +162,7 @@ class OperationService:
                 raise OperationError(409,'Confirm the exact current plan version and hash')
             deadline=op['deadline_at'] if resume else clock+plan.runtime_seconds
             changed=db.execute(update(operations).where(*self.scope(actor,operation_id),
+                True if durable else self.not_temporal_owned(actor,operation_id),
                 operations.c.state==op['state'],operations.c.plan_hash==op['plan_hash'],
                 operations.c.lease_token==op['lease_token'] if op['lease_token'] else operations.c.lease_token.is_(None))
                 .values(state='RUNNING',lease_token=lease,lease_until=clock+10,deadline_at=deadline,updated_at=now_iso()))

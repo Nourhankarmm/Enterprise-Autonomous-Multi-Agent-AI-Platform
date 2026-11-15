@@ -29,8 +29,9 @@ class UploadLimitMiddleware:
         await self.app(scope,replay,send)
 
 
-def register_document_routes(app,engine,reader):
+def register_document_routes(app,engine,reader,viewer=None):
     service=DocumentService(engine);app.state.documents=service
+    viewer=viewer or reader
     app.add_middleware(UploadLimitMiddleware)
 
     @app.exception_handler(DocumentError)
@@ -47,13 +48,13 @@ def register_document_routes(app,engine,reader):
             headers={'Content-Disposition':f'attachment; filename="{names[sample]}"'})
 
     @app.get('/v1/documents')
-    def list_documents(actor=Depends(reader)):return service.list(actor)
+    def list_documents(actor=Depends(viewer)):return service.list(actor)
 
     @app.get('/v1/document-readers')
     def readers(actor=Depends(reader)):return service.readers(actor)
 
     @app.get('/v1/documents/search')
-    def search(q:str=Query(min_length=2,max_length=200),limit:int=Query(default=10,ge=1,le=20),actor=Depends(reader)):
+    def search(q:str=Query(min_length=2,max_length=200),limit:int=Query(default=10,ge=1,le=20),actor=Depends(viewer)):
         return service.search(actor,q,limit)
 
     @app.post('/v1/documents',status_code=201)
@@ -67,13 +68,13 @@ def register_document_routes(app,engine,reader):
         finally:await file.close()
 
     @app.get('/v1/documents/{document_id}')
-    def get(document_id:str,actor=Depends(reader)):return service.get(actor,document_id)
+    def get(document_id:str,actor=Depends(viewer)):return service.get(actor,document_id)
 
     @app.get('/v1/documents/{document_id}/pages/{page}')
-    def page(document_id:str,page:int,actor=Depends(reader)):return service.page(actor,document_id,page)
+    def page(document_id:str,page:int,actor=Depends(viewer)):return service.page(actor,document_id,page)
 
     @app.get('/v1/documents/{document_id}/file')
-    def file(document_id:str,actor=Depends(reader)):
+    def file(document_id:str,actor=Depends(viewer)):
         data=service.file(actor,document_id)
         return Response(data,media_type='application/pdf',headers={'Content-Disposition':f'attachment; filename="{document_id}.pdf"'})
 
