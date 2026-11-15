@@ -24,11 +24,12 @@ class RecordedResult(unittest.TextTestResult):
 
 def main():
     parser=argparse.ArgumentParser();parser.add_argument('--output',default='.data/phase6-regressions.json');args=parser.parse_args()
+    commit=subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip()
+    dirty=bool(subprocess.check_output(['git','status','--porcelain'],cwd=ROOT,text=True).strip())
     started=time.perf_counter();suite=unittest.defaultTestLoader.discover(str(ROOT/'tests'))
     result=unittest.TextTestRunner(verbosity=2,resultclass=RecordedResult).run(suite)
-    commit=subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip()
     report={'schema_version':1,'executed_at':datetime.now(timezone.utc).isoformat(),'commit':commit,
-        'python':platform.python_version(),'database':'PostgreSQL if TEST_DATABASE_URL is configured; otherwise isolated SQLite fixtures',
+        'source_dirty_at_start':dirty,'python':platform.python_version(),'database':'PostgreSQL if TEST_DATABASE_URL is configured; otherwise isolated SQLite fixtures',
         'duration_seconds':round(time.perf_counter()-started,3),'tests_run':result.testsRun,
         'passed':sum(r['status']=='passed' for r in result.records),'failed':len(result.failures),
         'errors':len(result.errors),'skipped':len(result.skipped),'status':'PASS' if result.wasSuccessful() else 'FAIL',

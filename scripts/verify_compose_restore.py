@@ -1,5 +1,6 @@
 """Verify a binary pg_dump in a new disposable database; never overwrites the source."""
 import json,secrets,subprocess
+from pathlib import Path
 from compose_smoke import compose
 
 STATS="""SELECT json_build_object(
@@ -31,8 +32,13 @@ def main():
         after=stats(target)
         if before!=after:raise AssertionError('Restored domain data/checksums differ from the source')
         # No binary dump or rows are published; only verification counts are reported.
-        print(json.dumps({'backup_restore':'PASS','source_unchanged':stats('platform')==before,
-            'verified_counts':{k:v for k,v in after.items() if k!='document_bytes'},'pdf_bytes_and_checksums_verified':True}))
+        unchanged=stats('platform')==before
+        if not unchanged:raise AssertionError('Source domain data changed during restore verification')
+        report={'backup_restore':'PASS','source_unchanged':unchanged,
+            'verified_counts':{k:v for k,v in after.items() if k!='document_bytes'},'pdf_bytes_and_checksums_verified':True}
+        target_report=Path('.data/phase6-backup-restore.json');target_report.parent.mkdir(parents=True,exist_ok=True)
+        target_report.write_text(json.dumps(report,indent=2)+'\n')
+        print(json.dumps(report))
     finally:
         if created:compose('exec','-T','db','dropdb','-U','platform',target)
 if __name__=='__main__':main()

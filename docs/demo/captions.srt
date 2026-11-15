@@ -1,0 +1,24 @@
+1
+00:00:00,000 --> 00:00:04,000
+Synthetic procurement platform — edited UI walkthrough
+Genuine Phase 5 captures; UI retained in Phase 6
+
+2
+00:00:04,000 --> 00:00:10,000
+Owner-scoped dashboard: analyses, follow-ups and review status
+Use “new goal” to create a plan for explicit review
+
+3
+00:00:10,000 --> 00:00:16,000
+Follow-ups require a separate assigned approver
+Only the sandbox mailbox is supported; no real email
+
+4
+00:00:16,000 --> 00:00:23,000
+Usage dashboard: recorded planner calls and known token counts
+This demo call uses zero model tokens
+
+5
+00:00:23,000 --> 00:00:30,000
+Zero demo-model cost does not include infrastructure or live AI
+Phase 6 evaluation and recovery evidence are separate JSON reports
