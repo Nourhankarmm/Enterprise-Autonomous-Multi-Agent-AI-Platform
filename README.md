@@ -1,8 +1,8 @@
 # Enterprise Autonomous Multi-Agent AI Platform
 
-Phase 0 planning/data and Phase 1 application foundation are implemented. Phase 2 now adds reviewed plans, a bounded LangGraph runtime and persisted task traces; real Gemini model acceptance is verified in `evals/reports/phase2-live-gemini.json`. Phase 1 uses a **local authentication stub**, not OIDC/SSO. Phase 3 adds reviewed PDF contract evidence and ACL-filtered lexical retrieval. Temporal, approvals and sending belong to later phases.
+Phases 0–4 are implemented for a synthetic demonstration: tenant-scoped procurement, reviewed LangGraph plans, PDF evidence and ACL-filtered retrieval, and Temporal background follow-ups with independent approvals and idempotent sandbox email. Real Gemini planning acceptance is verified in `evals/reports/phase2-live-gemini.json` and `phase3-live-gemini.json`. Authentication remains a **local stub**, not OIDC/SSO, and no real email is delivered.
 
-See [Phase 3 review](docs/PHASE_3_REVIEW.md), [Phase 2 review](docs/PHASE_2_REVIEW.md), [Phase 1 review](docs/PHASE_1_REVIEW.md), [roadmap](docs/ROADMAP.md), and [Phase 0 rules](docs/PHASE_0_SPEC.md).
+See [Phase 4 review](docs/PHASE_4_REVIEW.md), [Phase 3 review](docs/PHASE_3_REVIEW.md), [Phase 2 review](docs/PHASE_2_REVIEW.md), [Phase 1 review](docs/PHASE_1_REVIEW.md), [roadmap](docs/ROADMAP.md), and [Phase 0 rules](docs/PHASE_0_SPEC.md).
 
 ## Local PowerShell setup
 
@@ -123,10 +123,22 @@ API additions:
 - `PUT /v1/documents/{id}/acl`: owner sends current `revision` and exact `readers` user IDs. `GET /v1/document-readers` provides eligible same-company users.
 - `GET /v1/document-samples/{sample}`: authenticated synthetic fixture download; samples include `supplier-s1`, `supplier-s3`, `conflicting`, `business-days`, `scanned`.
 
-SQLite startup applies additive migrations, including contract-family ownership preservation. PostgreSQL still requires explicit `alembic upgrade head` before API startup. The current migrations are 0001–0004. See the Phase 3 review for detailed validation and remaining limits.
+SQLite startup applies additive migrations, including contract-family ownership preservation. PostgreSQL still requires explicit `alembic upgrade head` before API startup. The current migrations are 0001–0005. See the phase reviews for detailed validation and remaining limits.
+
+## Durable follow-ups and approvals (Phase 4)
+
+Compose now starts a persistent Temporal development server and a separate worker. Confirm a reviewed plan with **أؤكد الخطة وأبدأ متابعة مستمرة** to run it in the background. Missing evidence waits durably; after publication, use **أعد التحليل بعد تحديث الأدلة** to produce a fresh snapshot with the same confirmed filters. Drafting requires complete supported findings.
+
+Freeze the exact message in **المتابعات والموافقات**. Select an independent same-company approver for the frozen proposal. That separate local `approver` account reviews the displayed payload/hash and approves or rejects it. Requesters cannot approve themselves. Share any cited PDF with that approver explicitly first. Permission, source data, evidence versions and the 24-hour approval expiry are checked again before dispatch.
+
+The only email connector is a local **sandbox**: fixed `.example.invalid` recipients, no external network delivery, and no attachments. Its receipt and unique logical-action ledger support crash reconciliation and prevent duplicate sandbox acceptance. Unknown outcomes remain RECONCILING instead of being blindly retried. Real mail requires a separately implemented provider adapter and policy.
+
+API: `POST /v1/operations/{id}/durable` with exact plan `version`/`plan_hash`; `GET /v1/workflows` and `/{id}`; `POST /v1/workflows/{id}/draft`, `/refresh`, `/cancel`; `GET /v1/approvals`; `POST /v1/approvals/{action_id}/decision`. Mutating requests carry a unique `request_id`; decisions also carry `action_hash` and `approve`/`reject`. Draft fields are `supplier_id`, `subject`, `body`, and optional `approver_id` (required when multiple eligible approvers exist). `GET /v1/workflow-approvers` lists eligible choices. Identity and destinations cannot be supplied by the model or request body.
+
+Local Windows: start the official Temporal CLI with `temporal server start-dev --db-filename .data/temporal-phase4.db`, then `.venv\Scripts\python.exe scripts/run_durable.py`; open `http://127.0.0.1:8002`. This launcher uses the local demo planner and leaves the Gemini server separate. See [Phase 4 review](docs/PHASE_4_REVIEW.md) for setup, recovery protocol and limits. `TEST_TEMPORAL_ADDRESS=127.0.0.1:7233` enables the real history/replay integration test; ordinary unittest discovery skips it when no server is configured.
 
 ## Limits
 
-Synthetic local demonstration only. Local auth has no enterprise SSO, MFA, password recovery, brute-force rate limiting or identity lifecycle integration. Use loopback for the demo; remote deployment requires HTTPS and identity hardening. Audit records are durable, not tamper-proof. Composite foreign keys and application query scoping are implemented; PostgreSQL RLS is not. The UI is a static Arabic shell served by FastAPI; Next.js is deferred until the operations UI phase. There is no OCR, semantic-vector retrieval, general legal-language extraction, real ERP write, financial action, email sending or approval engine. PDF evidence supports explicit clauses with human review.
+Synthetic local demonstration only. Local auth has no enterprise SSO, MFA, password recovery, brute-force rate limiting or identity lifecycle integration. Use loopback for the demo; remote deployment requires HTTPS and identity hardening. Audit records are durable, not tamper-proof. Composite foreign keys and application query scoping are implemented; PostgreSQL RLS is not. The UI is a static Arabic shell served by FastAPI; Next.js is deferred until the operations UI phase. There is no OCR, semantic-vector retrieval, general legal-language extraction, real ERP write, financial action or real email delivery. PDF evidence supports explicit clauses with human review; independent approvals and email dispatch are implemented against the sandbox only. Temporal's development server is not a production deployment.
 
 Phase 1 image builds, fresh Compose startup, HTTP acceptance and cleanup passed on GitHub Actions. Phase 2 extends these checks to the reviewed LangGraph pipeline; see the branch/PR checks and Phase 2 review for current evidence. Historical Phase 1 run: https://github.com/Nourhankarmm/Enterprise-Autonomous-Multi-Agent-AI-Platform/actions/runs/43552653640

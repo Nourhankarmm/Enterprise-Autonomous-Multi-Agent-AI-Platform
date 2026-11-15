@@ -43,7 +43,7 @@ async def main():
     engine=engine_for(path)
     client=await Client.connect(os.getenv('TEMPORAL_ADDRESS','127.0.0.1:7233'),namespace=os.getenv('TEMPORAL_NAMESPACE','default'))
     try:
-        async with Worker(client,task_queue='procurement-v1',workflows=[ProcurementWorkflow],
+        async with Worker(client,task_queue=os.getenv('TEMPORAL_TASK_QUEUE','procurement-v1'),workflows=[ProcurementWorkflow],
             activities=[Activities(WorkflowService(engine,path)).step]):
             await asyncio.Event().wait()
     finally:engine.dispose()

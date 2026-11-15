@@ -76,7 +76,7 @@ class WorkflowService:
         actor=self.actor(actor.subject,actor.tenant_id,{'manager','analyst','approver'})
         with self.engine.connect() as db:
             row=self._run(db,actor.tenant_id,run_id);action=self._action(db,actor.tenant_id,run_id)
-            if row['requester_id']!=actor.subject and (actor.role!='approver' or not action):
+            if row['requester_id']!=actor.subject and (actor.role!='approver' or not action or action['payload'].get('approver_id')!=actor.subject):
                 raise WorkflowError(404,'Workflow not found')
             execution=db.execute(select(ledger).where(ledger.c.tenant_id==actor.tenant_id,
                 ledger.c.workflow_id==run_id)).mappings().first()
@@ -102,6 +102,13 @@ class WorkflowService:
             except Exception as error:
                 if getattr(error,'status',None) not in {403,404}:raise
         return {'items':visible}
+
+    def approvers(self,actor):
+        self.actor(actor.subject,actor.tenant_id,{'manager','analyst'})
+        with self.engine.connect() as db:
+            return {'items':[dict(r) for r in db.execute(select(users.c.id,users.c.username).where(
+                users.c.tenant_id==actor.tenant_id,users.c.active.is_(True),users.c.role=='approver',
+                users.c.id!=actor.subject).limit(100)).mappings()]}
 
     def command(self,actor,run_id,body,kind):
         with self.engine.begin() as db:
@@ -138,6 +145,10 @@ class WorkflowService:
     def draft(self,actor,run_id,body):
         with self.engine.connect() as db:row=self._run(db,actor.tenant_id,run_id)
         self._owner(actor,row)
+        candidates=self.approvers(actor)['items']
+        approver_id=body.approver_id or (candidates[0]['id'] if len(candidates)==1 else None)
+        if not approver_id or approver_id not in {u['id'] for u in candidates}:
+            raise WorkflowError(422,'Choose an independent active approver from your company')
         op,evidence_hash=self.validate_snapshot(actor,row['snapshot_id'])
         selected=[f for f in op['result']['findings'] if f['order_id'] in {
             o['id'] for t in op['tasks'] if t['capability']=='purchase_orders.read'
@@ -151,7 +162,7 @@ class WorkflowService:
             'to':[body.supplier_id.lower()+'@suppliers.example.invalid'],'cc':[],'bcc':[],
             'subject':body.subject,'body':body.body,'attachments':[],
             'supplier_id':body.supplier_id,'evidence_hash':evidence_hash,'findings':selected,
-            'policy_version':POLICY}
+            'policy_version':POLICY,'approver_id':approver_id}
         digest=canonical_hash(payload)
         with self.engine.begin() as db:
             row=self._run(db,actor.tenant_id,run_id,True)
@@ -180,6 +191,7 @@ class WorkflowService:
             if not action:raise WorkflowError(404,'Action not found')
             row=self._run(db,actor.tenant_id,action['workflow_id'])
         if row['requester_id']==live.subject:raise WorkflowError(403,'Independent approver required')
+        if action['payload'].get('approver_id')!=live.subject:raise WorkflowError(404,'Action not found')
         owner=self.actor(row['requester_id'],actor.tenant_id,{'manager','analyst'})
         _,digest=self.validate_snapshot(owner,action['snapshot_id'])
         self.docs.assert_snapshot_access(live,action['payload'],current=True)
@@ -270,6 +282,7 @@ class WorkflowService:
             owner=self.actor(row['requester_id'],tenant,{'manager','analyst'})
             approver=self.actor(approval['approver_id'],tenant,{'approver'})
             if approver.subject==owner.subject:raise WorkflowError(403,'Independent approval required')
+            if action['payload'].get('approver_id')!=approver.subject:raise WorkflowError(403,'Assigned approver required')
             _,evidence_hash=self.validate_snapshot(owner,action['snapshot_id'])
             self.docs.assert_snapshot_access(approver,action['payload'],current=True)
             if (approval['action_hash']!=action['action_hash'] or canonical_hash(action['payload'])!=action['action_hash']

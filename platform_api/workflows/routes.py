@@ -27,13 +27,16 @@ def register_workflow_routes(app,engine,path,identity,reader):
                 namespace=os.getenv('TEMPORAL_NAMESPACE','default')),timeout=5)
             await asyncio.wait_for(client.start_workflow(ProcurementWorkflow.run,
                 {'tenant_id':actor.tenant_id,'id':run_id,'poll_seconds':int(os.getenv('WORKFLOW_POLL_SECONDS','15'))},
-                id=run_id,task_queue='procurement-v1',id_reuse_policy=WorkflowIDReusePolicy.REJECT_DUPLICATE),timeout=5)
+                id=run_id,task_queue=os.getenv('TEMPORAL_TASK_QUEUE','procurement-v1'),id_reuse_policy=WorkflowIDReusePolicy.REJECT_DUPLICATE),timeout=5)
         except WorkflowAlreadyStartedError:pass
         except Exception:raise WorkflowError(503,'Temporal unavailable; retry the same operation to recover the pending start') from None
         return await asyncio.to_thread(service.get,actor,run_id)
 
     @app.get('/v1/workflows')
     def list_workflows(actor=Depends(identity)):return service.list(actor)
+
+    @app.get('/v1/workflow-approvers')
+    def approvers(actor=Depends(reader)):return service.approvers(actor)
 
     @app.get('/v1/workflows/{run_id}')
     def get(run_id:str,actor=Depends(identity)):return service.get(actor,run_id)

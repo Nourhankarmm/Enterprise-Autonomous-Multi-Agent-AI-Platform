@@ -1,6 +1,6 @@
 """Optional real Temporal history/replay and stopped-worker document-wait acceptance."""
 import asyncio,os,tempfile,uuid,unittest
-from datetime import date
+from datetime import date,datetime,timezone,timedelta
 from pathlib import Path
 from types import SimpleNamespace
 from contextlib import ExitStack
@@ -47,6 +47,18 @@ class TemporalIntegrationTests(unittest.IsolatedAsyncioTestCase):
                 handle=await client.start_workflow(ProcurementWorkflow.run,{'tenant_id':'alpha','id':run_id,'poll_seconds':1,'rotation_limit':2},
                     id=run_id,task_queue=queue)
                 await wait('WAITING_DOCUMENT')
+                # Exercise the durable expiry branch with a persisted past deadline.
+                expiring_op=await asyncio.to_thread(OperationService(engine,path,DemoPlanner()).create,owner,
+                    GoalInput(goal=DEMO_GOAL,as_of=date(2026,11,14)))
+                expiring_id=service.reserve(owner,expiring_op['id'],StartInput(version=1,plan_hash=expiring_op['plan_hash']))
+                partial=await asyncio.to_thread(service.analyze,'alpha',expiring_id,0)
+                service.project('alpha',expiring_id,partial['state'],snapshot_id=partial['snapshot_id'],result=partial['result'])
+                expiry_handle=await client.start_workflow(ProcurementWorkflow.run,{'tenant_id':'alpha','id':expiring_id,
+                    'poll_seconds':1,'continuation':{'cursor':0,'cycle':0,'state':'WAITING_DOCUMENT',
+                    'expiry':(datetime.now(timezone.utc)-timedelta(seconds=1)).isoformat(),'analysis':partial}},
+                    id=expiring_id,task_queue=queue)
+                self.assertEqual(await asyncio.wait_for(expiry_handle.result(),25),'PARTIALLY_COMPLETED')
+                self.assertEqual(service.get(owner,expiring_id)['error_code'],'DOCUMENT_WAIT_EXPIRED')
                 for _ in range(100):
                     if (await client.get_workflow_handle(run_id).describe()).run_id!=handle.first_execution_run_id:break
                     await asyncio.sleep(.2)

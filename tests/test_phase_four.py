@@ -223,3 +223,17 @@ class PhaseFourTests(unittest.TestCase):
         doc=self.service.docs.get(self.owner,doc['id']);self.share(doc,[self.approver])
         self.assertEqual(self.client.get(path,headers=self.headers('approver')).status_code,200)
         self.assertEqual(self.client.post('/v1/documents',headers=self.headers('approver'),data={}).status_code,403)
+
+    def test_only_assigned_approver_can_view_or_decide(self):
+        action=self.draft();other='other-'+uuid.uuid4().hex
+        with self.engine.begin() as db:db.execute(insert(users).values(id=other,username=other,tenant_id=self.alpha,
+            role='approver',active=True,password_hash='not-a-login'))
+        actor=Identity(tenant_id=self.alpha,subject=other,role='approver')
+        with self.assertRaises(WorkflowError):self.service.get(actor,self.run)
+        with self.assertRaises(WorkflowError):self.decision(action,who=actor)
+        self.assertEqual(self.service.list(actor)['items'],[])
+
+    def test_no_eligible_approver_blocks_draft_instead_of_self_approval(self):
+        with self.engine.begin() as db:db.execute(update(users).where(users.c.id==self.approver).values(active=False))
+        with self.assertRaises(WorkflowError):self.draft()
+        self.assertEqual(self.count_messages(),0)
