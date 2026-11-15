@@ -1,0 +1,182 @@
+{
+  "source_regression_commit": "31b96cb2e1cdbb5888c08fe1f74d6904da2f710e",
+  "cases": [
+    {
+      "case": "B01",
+      "coverage": "partial",
+      "scope": "Draft creation remains explicit/manual.",
+      "tests": [
+        "test_phase_three.PhaseThreeTests.test_reviewed_terms_drive_page_cited_deterministic_assessment"
+      ],
+      "full_business_e2e_claim": false
+    },
+    {
+      "case": "B02",
+      "coverage": "component",
+      "scope": "Synthetic grace arithmetic.",
+      "tests": [
+        "test_foundation.FoundationTests.test_fifteen_calculation_cases"
+      ],
+      "full_business_e2e_claim": false
+    },
+    {
+      "case": "B03",
+      "coverage": "component",
+      "scope": "Missing evidence and explicit refresh.",
+      "tests": [
+        "test_phase_three.PhaseThreeTests.test_resolving_missing_contract_produces_supported_new_operation"
+      ],
+      "full_business_e2e_claim": false
+    },
+    {
+      "case": "B04",
+      "coverage": "partial",
+      "scope": "No legal signature validation.",
+      "tests": [
+        "test_phase_three.PhaseThreeTests.test_erp_contract_date_conflict_blocks_contractual_risk"
+      ],
+      "full_business_e2e_claim": false
+    },
+    {
+      "case": "B05",
+      "coverage": "deferred",
+      "scope": "Verified amendment source model is unavailable.",
+      "tests": [],
+      "full_business_e2e_claim": false
+    },
+    {
+      "case": "B06",
+      "coverage": "deferred",
+      "scope": "Aggregate inventory/project analysis is unavailable.",
+      "tests": [],
+      "full_business_e2e_claim": false
+    },
+    {
+      "case": "B07",
+      "coverage": "component",
+      "scope": "Sandbox receipt only.",
+      "tests": [
+        "test_phase_four.PhaseFourTests.test_replay_and_new_process_reuse_receipt"
+      ],
+      "full_business_e2e_claim": false
+    },
+    {
+      "case": "B08",
+      "coverage": "component",
+      "scope": "Changed payload requires review.",
+      "tests": [
+        "test_phase_four.PhaseFourTests.test_revision_invalidates_approval_and_old_hash"
+      ],
+      "full_business_e2e_claim": false
+    },
+    {
+      "case": "B09",
+      "coverage": "component",
+      "scope": "Expiry and fresh review.",
+      "tests": [
+        "test_phase_four.PhaseFourTests.test_expired_approval_blocks_then_fresh_review_allows_send"
+      ],
+      "full_business_e2e_claim": false
+    },
+    {
+      "case": "B10",
+      "coverage": "component",
+      "scope": "Current authorization has separate regressions.",
+      "tests": [
+        "test_phase_four.PhaseFourTests.test_changed_erp_or_contract_requires_fresh_evidence"
+      ],
+      "full_business_e2e_claim": false
+    },
+    {
+      "case": "B11",
+      "coverage": "component",
+      "scope": "Assigned independent approver.",
+      "tests": [
+        "test_phase_four.PhaseFourTests.test_only_live_independent_approver_can_decide"
+      ],
+      "full_business_e2e_claim": false
+    },
+    {
+      "case": "B12",
+      "coverage": "component",
+      "scope": "Tenant-scoped reads.",
+      "tests": [
+        "test_foundation.FoundationTests.test_cross_tenant_object_access"
+      ],
+      "full_business_e2e_claim": false
+    },
+    {
+      "case": "B13",
+      "coverage": "component",
+      "scope": "Current document ACL.",
+      "tests": [
+        "test_phase_three.PhaseThreeTests.test_private_document_is_hidden_from_same_and_other_company"
+      ],
+      "full_business_e2e_claim": false
+    },
+    {
+      "case": "B14",
+      "coverage": "component",
+      "scope": "Hostile synthetic PDF text.",
+      "tests": [
+        "test_phase_three.PhaseThreeTests.test_injection_text_cannot_expand_capabilities_or_send"
+      ],
+      "full_business_e2e_claim": false
+    },
+    {
+      "case": "B15",
+      "coverage": "component",
+      "scope": "Bounded transient read recovery.",
+      "tests": [
+        "test_phase_two.PhaseTwoTests.test_transient_read_retry_is_bounded"
+      ],
+      "full_business_e2e_claim": false
+    },
+    {
+      "case": "B16",
+      "coverage": "component",
+      "scope": "One logical sandbox message.",
+      "tests": [
+        "test_phase_four.PhaseFourTests.test_simultaneous_dispatch_converges_on_one_provider_message"
+      ],
+      "full_business_e2e_claim": false
+    },
+    {
+      "case": "B17",
+      "coverage": "partial",
+      "scope": "No production provider/manual reconciliation UI.",
+      "tests": [
+        "test_phase_four.PhaseFourTests.test_unknown_provider_outcome_is_never_blindly_retried"
+      ],
+      "full_business_e2e_claim": false
+    },
+    {
+      "case": "B18",
+      "coverage": "component",
+      "scope": "Actual Temporal process recovery is separately measured.",
+      "tests": [
+        "test_phase_four.PhaseFourTests.test_provider_accept_then_worker_crash_reconciles_without_second_send"
+      ],
+      "full_business_e2e_claim": false
+    },
+    {
+      "case": "B19",
+      "coverage": "partial",
+      "scope": "Single logical action; not the full multi-action business journey.",
+      "tests": [
+        "test_phase_four.PhaseFourTests.test_cancel_after_provider_acceptance_still_reports_receipt"
+      ],
+      "full_business_e2e_claim": false
+    },
+    {
+      "case": "B20",
+      "coverage": "component",
+      "scope": "Unsupported write tools denied.",
+      "tests": [
+        "test_phase_two.PhaseTwoTests.test_out_of_scope_model_decision_is_not_executed"
+      ],
+      "full_business_e2e_claim": false
+    }
+  ],
+  "note": "Component evidence is not complete business E2E acceptance."
+}

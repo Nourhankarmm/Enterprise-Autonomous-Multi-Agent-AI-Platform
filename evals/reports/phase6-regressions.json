@@ -810,6 +810,8 @@
   ],
   "notes": [
     "Skipped Temporal integration is executed separately against an actual service in Compose.",
-    "Test names and assertion outcomes are recorded; no exception messages, credentials or provider bodies are retained in this JSON."
-  ]
+    "Test names and assertion outcomes are recorded; no exception messages, credentials or provider bodies are retained in this JSON.",
+    "Local suite started before the implementation commit; commit field was captured at completion. Use final CI artifacts for exact clean-head regression provenance."
+  ],
+  "source_dirty_at_start": true
 }

@@ -12,8 +12,14 @@ Run `python scripts/run_regressions.py` for named test results. Real Temporal in
 
 ## Business specification coverage
 
+`python scripts/build_coverage.py` maps every authored scenario to a passing constituent regression or an explicit deferred entry. The machine-readable map is published with CI artifacts. It deliberately marks every full-business-E2E claim false.
+
 The twenty Phase 0 scenarios remain acceptance specifications. Existing tests exercise their constituent controls, but there is no claim of twenty complete business E2E cases. B01 requires an explicit manual draft; B04 detects date conflicts without verifying legal signatures; B05 verified amendments and B06 aggregate inventory/project analysis are deferred. B17 has safe unknown-outcome handling but no production connector or manual reconciliation UI. B19 supports one logical action per workflow rather than the entire specified multi-action journey. Remaining approval, tenant, ACL, hostile-document, retry and cancellation behaviors are covered by the Phase 1–6 regressions and real Temporal test within their synthetic scope.
 
 ## Release boundary
+
+The committed local evaluation at `31b96cb` used Python 3.14.7 / Windows / temporary SQLite with five repetitions. Reviewed graph latency was median 1112.924 ms / nearest-rank P95 1318.180 ms (n=5); PDF ingestion was 1022.903 / 1136.724 ms (n=5). These small local samples are descriptive. The local full suite passed 158 tests with one optional integration skipped; the separate actual Temporal run passed. Final clean-head CI artifacts are authoritative for PostgreSQL/Compose/restore/recovery acceptance. The local dependency snapshot contains no reported advisories in its 65 listed packages; advisory coverage is bounded to that lookup.
+
+The [edited demo](demo/README.md) includes its actual screenshot provenance and the recording-runtime failure. It is not a new browser acceptance run. Release notes are in RELEASE_NOTES_0.6.0.md; merging/publishing remains a separate user decision.
 
 See [deployment and recovery](DEPLOYMENT.md). Local authentication, Temporal development mode, sandbox mail, lexical retrieval, conservative reviewed PDF extraction and synthetic ERP remain explicit boundaries. Limits are fixed-window admission controls, not a complete denial-of-service defense. A dependency audit is a dated advisory lookup, not proof that dependencies are vulnerability-free. CI publishes per-commit JSON for regression/evaluation/recovery evidence; never publish keys, database dumps or raw provider errors.
