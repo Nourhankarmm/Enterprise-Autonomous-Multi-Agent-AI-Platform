@@ -15,6 +15,7 @@ class PlanningResult:
     provider: str
     model: str | None = None
     usage: dict = field(default_factory=dict)
+    telemetry_id: str | None = None
 
 class DemoPlanner:
     name = 'demo'
@@ -152,7 +153,8 @@ class GeminiPlanner:
             usage=body.get('usageMetadata',{})
             return PlanningResult(proposal,'gemini',self.model,{
                 'input_tokens':int(usage.get('promptTokenCount',0)),
-                'output_tokens':int(usage.get('candidatesTokenCount',0))+int(usage.get('thoughtsTokenCount',0))})
+                'output_tokens':int(usage.get('candidatesTokenCount',0))+int(usage.get('thoughtsTokenCount',0))}
+                if 'promptTokenCount' in usage and ('candidatesTokenCount' in usage or 'thoughtsTokenCount' in usage) else {})
         except PlannerUnavailable:raise
         except ValidationError as error:
             fields=['.'.join(str(part) for part in item['loc'])+':'+item['type'] for item in error.errors(include_input=False)[:3]]

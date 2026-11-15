@@ -51,6 +51,9 @@ e.dispose()
     compose('restart','temporal');compose('start','worker')
     wait('WAITING_APPROVAL')
     action=request(path+'/draft',owner,payload={'request_id':uuid.uuid4().hex,'supplier_id':'S3','subject':'Supplier follow-up','body':'Please confirm delivery timing.'},expected=201)
+    assert [r['id'] for r in request('/v1/dashboard',reviewer)['workflows']]==[run_id]
+    assert request('/v1/dashboard',reviewer)['analyses']==[]
+    request('/v1/telemetry/planner',reviewer,expected=403)
     decision={'request_id':uuid.uuid4().hex,'action_hash':action['action_hash'],'decision':'approve'}
     request('/v1/approvals/'+action['id']+'/decision',owner,payload=decision,expected=403)
     compose('kill','-s','SIGKILL','worker')
@@ -60,6 +63,9 @@ e.dispose()
     completed=wait('COMPLETED');receipt=completed['execution']['receipt']
     assert receipt['accepted'] and completed['result']['external_actions']==1
     assert completed['action']['action_hash']==action['action_hash']
+    timeline=request(path+'/timeline',reviewer)
+    assert {'action.proposed','approval.approve','action.receipt_recorded'}<={e['event_type'] for e in timeline['items']}
+    assert request('/v1/telemetry/planner',owner)['summary']['calls']==1
     compose('restart','worker');time.sleep(2)
     assert request(path,owner)['execution']['receipt']==receipt
     count='''
