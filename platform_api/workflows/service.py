@@ -76,6 +76,7 @@ class WorkflowService:
         actor=self.actor(actor.subject,actor.tenant_id,{'manager','analyst','approver'})
         with self.engine.connect() as db:
             row=self._run(db,actor.tenant_id,run_id);action=self._action(db,actor.tenant_id,run_id)
+            if action and action['snapshot_id']!=row['snapshot_id']:action=None
             if row['requester_id']!=actor.subject and (actor.role!='approver' or not action or action['payload'].get('approver_id')!=actor.subject):
                 raise WorkflowError(404,'Workflow not found')
             execution=db.execute(select(ledger).where(ledger.c.tenant_id==actor.tenant_id,
@@ -172,6 +173,9 @@ class WorkflowService:
                 return dict(old)
             if row['state']!='WAITING_APPROVAL' or row['snapshot_id']!=op['id']:
                 raise WorkflowError(409,'Workflow is not ready for a proposal')
+            if db.execute(select(commands.c.id).where(commands.c.tenant_id==actor.tenant_id,
+                commands.c.workflow_id==run_id,commands.c.kind=='refresh',commands.c.created_at>row['updated_at'])).first():
+                raise WorkflowError(409,'Wait for the requested evidence refresh before drafting')
             if db.execute(select(ledger).where(ledger.c.tenant_id==actor.tenant_id,ledger.c.workflow_id==run_id)).first():
                 raise WorkflowError(409,'Dispatch already claimed; proposal is frozen')
             revision=row['revision']+1
@@ -205,7 +209,8 @@ class WorkflowService:
                 if existing['decision']!=body.decision or existing['approver_id']!=actor.subject:raise WorkflowError(409,'Decision request already used')
                 return dict(existing)
             latest=self._action(db,actor.tenant_id,row['id'])
-            if row['state']!='WAITING_APPROVAL' or latest['id']!=action_id:raise WorkflowError(409,'Proposal is stale or no longer waiting')
+            if row['state']!='WAITING_APPROVAL' or latest['id']!=action_id or row['snapshot_id']!=action['snapshot_id']:
+                raise WorkflowError(409,'Proposal is stale or no longer waiting')
             if db.execute(select(approvals.c.id).where(approvals.c.tenant_id==actor.tenant_id,
                 approvals.c.action_id==action_id,approvals.c.decision=='reject')).first():
                 raise WorkflowError(409,'Proposal was rejected; create a new linked operation')
@@ -296,6 +301,9 @@ class WorkflowService:
             latest=self._action(db,tenant,run_id)
             if latest['id']!=action['id'] or locked['snapshot_id']!=action['snapshot_id']:
                 return {'state':'WAITING_APPROVAL','error_code':'PROPOSAL_CHANGED'}
+            if db.execute(select(commands.c.id).where(commands.c.tenant_id==tenant,commands.c.workflow_id==run_id,
+                commands.c.kind=='refresh',commands.c.created_at>action['created_at'])).first():
+                return {'state':'WAITING_APPROVAL','error_code':'EVIDENCE_REFRESH_REQUESTED'}
             if db.execute(select(approvals.c.id).where(approvals.c.tenant_id==tenant,
                 approvals.c.action_id==action['id'],approvals.c.decision=='reject')).first():return {'state':'REJECTED'}
             if db.execute(select(commands.c.id).where(commands.c.tenant_id==tenant,commands.c.workflow_id==run_id,

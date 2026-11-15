@@ -36,6 +36,9 @@ class ProcurementWorkflow:
                     elif command['kind']=='decision':decision_id=command['payload']['decision_id']
                 if cancelled and state not in {'RECONCILING','RETRY_SEND'}:
                     state='CANCELLED';await project(state);break
+                if refresh and state in {'WAITING_DOCUMENT','WAITING_CLARIFICATION','WAITING_APPROVAL'} and not cancelled:
+                    # Explicit refresh invalidates any queued decision on the previous snapshot.
+                    decision_id=None
                 if state in {'RECONCILING','RETRY_SEND'} or decision_id:
                     # Dispatch performs receipt lookup before any retry or policy evaluation.
                     outcome=await call('dispatch',decision_id)

@@ -95,6 +95,10 @@ class PhaseFourTests(unittest.TestCase):
         self.assertEqual(self.dispatch(decision)['state'],'WAITING_APPROVAL')
         with self.assertRaises(WorkflowError):self.decision(old)
         self.assertEqual(self.count_messages(),0)
+        fresh=self.decision(new)
+        self.service.command(self.owner,self.run,CommandInput(request_id=uuid.uuid4().hex),'refresh')
+        self.assertEqual(self.dispatch(fresh)['state'],'WAITING_APPROVAL')
+        self.assertEqual(self.count_messages(),0)
 
     def test_expired_approval_blocks_then_fresh_review_allows_send(self):
         action=self.draft();decision=self.decision(action)
@@ -170,10 +174,11 @@ class PhaseFourTests(unittest.TestCase):
         self.assertEqual(self.count_messages(),0)
 
     def test_commands_and_decisions_are_idempotent(self):
+        action=self.draft()
         body=CommandInput(request_id=uuid.uuid4().hex)
         self.service.command(self.owner,self.run,body,'refresh');self.service.command(self.owner,self.run,body,'refresh')
         self.assertEqual(len(self.service.inbox(self.alpha,self.run,0)),1)
-        action=self.draft();body=DecisionInput(request_id=uuid.uuid4().hex,action_hash=action['action_hash'],decision='approve')
+        body=DecisionInput(request_id=uuid.uuid4().hex,action_hash=action['action_hash'],decision='approve')
         first=self.service.decision(self.reviewer,action['id'],body)
         self.assertEqual(self.service.decision(self.reviewer,action['id'],body),first)
 
