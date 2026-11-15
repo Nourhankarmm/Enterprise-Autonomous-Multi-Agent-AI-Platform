@@ -50,8 +50,8 @@ const eventLabels={'plan.created':'تم تجهيز الخطة','plan.revised':'�
 async function loadAgentWorkspace(){
   try{
     const info=await api('/v1/agent-capabilities');
-    el('planner-mode').textContent=info.planner_provider==='demo'?'مخطط تجريبي محلي':'مخطط OpenAI';
-    el('planner-help').textContent=info.planner_provider==='demo'?'وضع تجربة بخطة ثابتة للهدف المعروض، بدون استدعاء نموذج AI. لفهم أهداف أخرى فعّل مخطط OpenAI على الخادم.':'سيُرسل نص الهدف فقط إلى نموذج OpenAI لتجهيز مقترح. الأدوات والصلاحيات والحسابات تُفرض داخل الخادم.';
+    el('planner-mode').textContent=info.planner_provider==='demo'?'مخطط تجريبي محلي':info.planner_provider==='gemini'?'مخطط Gemini':'مخطط OpenAI';
+    el('planner-help').textContent=info.planner_provider==='demo'?'وضع تجربة بخطة ثابتة للهدف المعروض، بدون استدعاء نموذج AI. لفهم أهداف أخرى فعّل مخطط AI متصل على الخادم.':'سيُرسل نص الهدف فقط إلى مزوّد AI المختار لتجهيز مقترح. الأدوات والصلاحيات والحسابات تُفرض داخل الخادم.';
     await loadOperations();
   }catch(error){el('message').textContent=error.message;}
 }

@@ -45,7 +45,7 @@ For an existing PostgreSQL server set `DATABASE_URL=postgresql+psycopg://USER:PA
 node --check web/app.js
 ```
 
-Expected: **50 unittest methods**, including 15 arithmetic subcases. To repeat Phase 1 acceptance against a dedicated, empty PostgreSQL test database:
+Expected: **58 unittest methods**, including 15 arithmetic subcases. To repeat Phase 1 acceptance against a dedicated, empty PostgreSQL test database:
 
 ```powershell
 $env:TEST_DATABASE_URL = 'postgresql+psycopg://USER:PASSWORD@127.0.0.1:5432/DEDICATED_TEST_DB'
@@ -53,7 +53,7 @@ $env:TEST_DATABASE_URL = 'postgresql+psycopg://USER:PASSWORD@127.0.0.1:5432/DEDI
 Remove-Item Env:TEST_DATABASE_URL
 ```
 
-This Phase 1 command runs nine methods, applies migrations twice, checks model/schema drift, seeds fixtures and writes test users/events. Repeat with `-p test_phase_two.py` for the 27 Phase 2 PostgreSQL methods. **Use a dedicated disposable database, never production.** The test database is retained for inspection. CI runs both SQLite and PostgreSQL 17 checks (including Phase 2), builds/starts the full Compose stack and verifies login, tenant isolation, audit/session persistence across API restart and logout. It cleans up its disposable stack afterward. GitHub Actions execution passed, including a fresh Compose boot and restart acceptance: [verified run](https://github.com/Nourhankarmm/Enterprise-Autonomous-Multi-Agent-AI-Platform/actions/runs/43552653640).
+This Phase 1 command runs nine methods, applies migrations twice, checks model/schema drift, seeds fixtures and writes test users/events. Repeat with `-p test_phase_two.py` for the 28 Phase 2 PostgreSQL methods. **Use a dedicated disposable database, never production.** The test database is retained for inspection. CI runs both SQLite and PostgreSQL 17 checks (including Phase 2), builds/starts the full Compose stack and verifies login, tenant isolation, audit/session persistence across API restart and logout. It cleans up its disposable stack afterward. GitHub Actions execution passed, including a fresh Compose boot and restart acceptance: [verified run](https://github.com/Nourhankarmm/Enterprise-Autonomous-Multi-Agent-AI-Platform/actions/runs/43552653640).
 
 ## API
 
@@ -78,13 +78,21 @@ Pass `Authorization: Bearer SESSION_TOKEN`. Company headers/query parameters can
 
 The default planner is **demo**, explicitly labelled in the UI. Enter `حلل تأخير طلبات الشراء المفتوحة` with analysis date `2026-11-14`, review all five tasks and scope, then confirm. No tool runs before confirmation. The result identifies PO-A3 as missing contract evidence, retaining supported PO-A1/A2 findings. Other demo goals request clarification; the demo does not understand arbitrary natural-language goals.
 
-For a real model-generated plan, choose a model available to your OpenAI account and run:
+For Gemini free-tier testing, double-click `start_gemini.cmd` on Windows, or run:
 
 ```powershell
-.\.venv\Scripts\python.exe scripts/run_local.py --model MODEL_ID --port 8001
+.\.venv\Scripts\python.exe scripts/run_local.py --provider gemini --port 8001
 ```
 
-Replace `MODEL_ID` with your model ID. The helper prompts for the API key without echoing or saving it, then opens a separate local server at http://127.0.0.1:8001. Use the existing local account. Only the goal, analysis date, instructions and plan schema are submitted to OpenAI. Planner calls can incur API charges. Do not paste keys into goals or commit them.
+The hidden prompt asks for `GEMINI_API_KEY`. The default model is `gemini-3.1-flash-lite`, listed on Google's free tier as checked on 15 November 2026. Availability/quota is project-specific; a quota or access error does not trigger a paid-model or demo fallback. The key is held in the server environment, not saved by the launcher. The free tier may use submitted content to improve Google products; use the synthetic fixture goals.
+
+For OpenAI, choose a model available to your account and run:
+
+```powershell
+.\.venv\Scripts\python.exe scripts/run_local.py --provider openai --model MODEL_ID --port 8001
+```
+
+Replace `MODEL_ID` with your model ID. The helper prompts for the API key without echoing or saving it, then opens a separate local server at http://127.0.0.1:8001. Use the existing local account. Only the goal, analysis date, instructions and plan schema are submitted to the selected provider. Planner calls can incur API charges. Do not paste keys into goals or commit them.
 
 To verify a real model-generated supplier-scoped operation without exposing keys, run in a second terminal:
 
@@ -92,9 +100,9 @@ To verify a real model-generated supplier-scoped operation without exposing keys
 .\.venv\Scripts\python.exe scripts/live_planner_smoke.py --username demo
 ```
 
-The hidden prompt asks for your **local account password**, not the OpenAI key. This opt-in test makes one live planner call through the configured server, checks the S1 filter and known fixture results, revokes its login session, and saves credential-free evidence to `.data/live-planner-verification.json` on success.
+The hidden prompt asks for your **local account password**, not the OpenAI key. This opt-in test makes one live planner call through the configured Gemini/OpenAI server, checks the S1 filter and known fixture results, revokes its login session, and saves credential-free evidence to `.data/live-planner-verification.json` on success.
 
-Alternatively set server environment variables `PLANNER_PROVIDER=openai`, `OPENAI_MODEL` and `OPENAI_API_KEY` before starting uvicorn or Compose. Demo remains the default; live errors never silently fall back. No live API verification is claimed until an actual model-generated operation succeeds. The SDK serialization/parser contract is tested offline.
+Alternatively set server environment variables `PLANNER_PROVIDER=openai`, `OPENAI_MODEL` and `OPENAI_API_KEY` before starting uvicorn or Compose. For Gemini use `PLANNER_PROVIDER=gemini`, `GEMINI_MODEL` and `GEMINI_API_KEY`. Demo remains the default; live errors never silently fall back. No live API verification is claimed until an actual model-generated operation succeeds. The SDK serialization/parser contract is tested offline.
 
 Operations are scoped to their requesting user and company. Plans are hash/version-bound, require confirmation and permit at most two revisions. The read-only runner persists every task result and attempt. A short lease prevents concurrent execution; explicit resume reuses successful snapshots while honoring the original 30-second deadline and attempt budgets. This is synchronous API execution, not a Temporal/background workflow engine.
 

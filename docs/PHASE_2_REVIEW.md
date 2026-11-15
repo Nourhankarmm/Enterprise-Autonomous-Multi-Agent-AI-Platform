@@ -24,7 +24,7 @@ The v1 plan shape is intentionally narrow: exactly one of each of the five appro
 
 ## Verification
 
-- 50 unittest methods: existing 23 plus 27 Phase 2 methods. The original 15 arithmetic subcases remain included.
+- Current suite: 58 unittest methods — existing 23, 28 Phase 2 methods and seven Gemini transport methods. The original 15 arithmetic subcases remain included.
 - Phase 2 tests include malicious tool/tenant/budget proposals, DAG errors, exact confirmation/revision/replay controls, tenant and owner isolation, transient/permanent errors, concurrent confirmation, timeout, cancellation during a read, account revocation, tampered findings, trace pagination and crash/resume without repeating successful tasks.
 - Real OpenAI SDK request serialization and structured response parsing are tested using an in-memory HTTP transport. No test uses a real API key or makes a paid model request.
 - Migration tests adopt only the exact known Phase 1 SQLite bootstrap schema while preserving users/hashes, and refuse unknown schema differences. The existing local demo database was upgraded without altering accounts.
@@ -48,3 +48,16 @@ After starting the live server on port 8001, run `python scripts/live_planner_sm
 
 
 Final core/hardening verification also passed on [CI run 43597574184](https://github.com/Nourhankarmm/Enterprise-Autonomous-Multi-Agent-AI-Platform/actions/runs/43597574184): 50 methods in the complete suite, nine Phase 1 PostgreSQL methods, 27 Phase 2 PostgreSQL methods, and the reviewed LangGraph operation through the fresh Compose stack. Live paid-model acceptance remains separate and pending.
+
+
+## Gemini free-tier adapter — 15 November 2026
+
+Added Gemini `generateContent` structured JSON planning over the existing typed plan/validation boundary. `GEMINI_API_KEY` is sent in the request header to a fixed official endpoint, never in the URL, plan or traces. Model IDs are validated. Requests have a 20-second timeout, one candidate, no retries and a 4,096-output-token cap. Blocked, truncated and schema-invalid responses are rejected; 429 quota, access and unavailable-model failures are sanitized. Thought parts are not retained. There is no automatic provider/model fallback.
+
+`start_gemini.cmd` launches the hidden-key prompt on Windows with the default `gemini-3.1-flash-lite`. The same helper supports `--provider gemini` and custom `--model`; the live acceptance script now accepts either Gemini or OpenAI. The selected provider/model are recorded with each operation. No provider key is committed.
+
+The added transport tests use in-memory responses, covering schema/header/usage, failures without retries, refusal/truncation, bad JSON, thought filtering, model/credential validation and provider selection. A Gemini-fixture plan is also reviewed and executed end-to-end through the operation API/LangGraph. These are not evidence of a live Gemini call. Live acceptance remains pending entry of the user's key in the local launcher.
+
+Official references: [Gemini structured output](https://ai.google.dev/gemini-api/docs/structured-output), [generateContent REST](https://ai.google.dev/api/generate-content), [free-tier pricing](https://ai.google.dev/gemini-api/docs/pricing#gemini-3.1-flash-lite). Free-tier limits/access and data-use terms apply; the integration does not enable billing or create a Google project/key.
+
+Gemini follow-up local verification: all 58 methods passed; seven transport methods and one operation/LangGraph method exercise the new provider without a real key. The 28 Phase 2 methods are also included in PostgreSQL CI.

@@ -1,4 +1,4 @@
-"""Opt-in live acceptance against a local OpenAI-enabled server; incurs one model call.
+"""Opt-in live acceptance against a local live-model server; consumes one model request/quota.
 
 No API key is read here. The server owns it. Local login uses a hidden prompt.
 """
@@ -25,12 +25,12 @@ def verify(base_url,username,password):
     op=None
     try:
         mode=request('/v1/agent-capabilities',token)
-        if mode['planner_provider']!='openai' or not mode['live_model_configured']:
-            raise AssertionError('This server is not configured for a live OpenAI planner')
+        if mode['planner_provider'] not in {'openai','gemini'} or not mode['live_model_configured']:
+            raise AssertionError('This server is not configured for a live model planner')
         op=request('/v1/operations',token,payload={
             'goal':'راجع تأخير طلبات الشراء المفتوحة للمورد S1 فقط، واحسب تجاوز السماح وتحقق من الأدلة.',
             'as_of':'2026-11-14'},expected=201)
-        assert op['planner_provider']=='openai' and op['state']=='PLANNED', 'Live planner did not produce a ready plan'
+        assert op['planner_provider']==mode['planner_provider'] and op['state']=='PLANNED', 'Live planner did not produce a ready plan'
         read=next(t for t in op['plan']['proposal']['tasks'] if t['capability']=='purchase_orders.read')
         assert read['filters']['supplier_id']=='S1', 'Planner did not preserve the requested supplier filter'
         result=request('/v1/operations/'+op['id']+'/confirm',token,payload={
@@ -40,7 +40,7 @@ def verify(base_url,username,password):
         assert len(findings)==1 and findings[0]['order_id']=='PO-A1', 'Expected alpha supplier S1 fixture'
         assert (findings[0]['late_days'],findings[0]['beyond_grace_days'],findings[0]['risk'])==(13,8,'HIGH')
         assert op['planner_usage'].get('input_tokens',0)>0
-        evidence={'verified_at':datetime.now(timezone.utc).isoformat(),'provider':'openai','model':op['planner_model'],'operation_id':op['id'],
+        evidence={'verified_at':datetime.now(timezone.utc).isoformat(),'provider':op['planner_provider'],'model':op['planner_model'],'operation_id':op['id'],
             'state':result['state'],'analysis_date':'2026-11-14','findings_count':len(findings),
             'usage':op['planner_usage'],'supplier_filter_verified':True}
         target=Path(__file__).resolve().parents[1]/'.data/live-planner-verification.json'

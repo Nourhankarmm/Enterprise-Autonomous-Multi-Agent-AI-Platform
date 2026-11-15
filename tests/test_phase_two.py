@@ -369,4 +369,20 @@ class PhaseTwoTests(unittest.TestCase):
         with self.assertRaises(TransientToolError) as error:gateway.execute(task,{},date(2026,11,14))
         self.assertNotIn('private-db-details',str(error.exception))
 
+
+    def test_gemini_generated_plan_runs_through_reviewed_graph(self):
+        import httpx,json
+        from platform_api.agents.planner import GeminiPlanner
+        proposal=self.proposal();proposal['tasks'][0]['filters']['supplier_id']='S1'
+        def handler(req):return httpx.Response(200,json={
+            'candidates':[{'finishReason':'STOP','content':{'parts':[{'text':json.dumps(proposal)}]}}],
+            'usageMetadata':{'promptTokenCount':100,'candidatesTokenCount':200}})
+        with httpx.Client(transport=httpx.MockTransport(handler)) as transport:
+            self.app.state.operations.planner=GeminiPlanner(client=transport,api_key='test-key',model='gemini-fixture')
+            op=self.create()
+        self.assertEqual(op['planner_provider'],'gemini');self.assertEqual(sum(t['attempts'] for t in op['tasks']),0)
+        result=self.confirm(op).json()
+        self.assertEqual(result['state'],'COMPLETED')
+        self.assertEqual([f['order_id'] for f in result['result']['findings']],['PO-A1'])
+
 if __name__=='__main__':unittest.main()
