@@ -1,5 +1,5 @@
 """Optional real Temporal history/replay and stopped-worker document-wait acceptance."""
-import asyncio,os,tempfile,uuid,unittest
+import asyncio,os,tempfile,uuid,unittest,subprocess,sys,json
 from datetime import date,datetime,timezone,timedelta
 from pathlib import Path
 from types import SimpleNamespace
@@ -9,7 +9,7 @@ from sqlalchemy import insert,select,func
 from temporalio.client import Client
 from temporalio.worker import Worker,Replayer
 from platform_api.store import initialize
-from platform_api.database import engine_for,users,sandbox_messages
+from platform_api.database import engine_for,users,sandbox_messages,action_executions
 from platform_api.agents.service import OperationService
 from platform_api.agents.planner import DemoPlanner
 from platform_api.agents.schemas import GoalInput,DEMO_GOAL
@@ -103,4 +103,43 @@ class TemporalIntegrationTests(unittest.IsolatedAsyncioTestCase):
             await Replayer(workflows=[ProcurementWorkflow]).replay_workflow(history)
             latest=await client.get_workflow_handle(run_id).fetch_history()
             await Replayer(workflows=[ProcurementWorkflow]).replay_workflow(latest)
+            # Kill a real separate worker exactly after provider acceptance and before ledger projection.
+            crash_op=await asyncio.to_thread(OperationService(engine,path,DemoPlanner()).create,owner,
+                GoalInput(goal=DEMO_GOAL,as_of=date(2026,11,14)))
+            crash_id=service.reserve(owner,crash_op['id'],StartInput(version=1,plan_hash=crash_op['plan_hash']))
+            crash_queue='crash-'+uuid.uuid4().hex
+            crash_handle=await client.start_workflow(ProcurementWorkflow.run,{'tenant_id':'alpha','id':crash_id,'poll_seconds':1},
+                id=crash_id,task_queue=crash_queue)
+            env={k:v for k,v in os.environ.items() if k.upper() in {'SYSTEMROOT','WINDIR','TEMP','TMP','PATH','LANG','LC_ALL'}}
+            env.update(DATABASE_PATH=path,TEST_TEMPORAL_ADDRESS=os.environ['TEST_TEMPORAL_ADDRESS'],TEMPORAL_TASK_QUEUE=crash_queue)
+            process=subprocess.Popen([sys.executable,str(Path(__file__).with_name('crash_worker.py'))],env=env,
+                stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,
+                creationflags=subprocess.CREATE_NO_WINDOW if sys.platform=='win32' else 0)
+            try:
+                await wait('WAITING_APPROVAL',crash_id)
+                action=service.draft(owner,crash_id,DraftInput(request_id=uuid.uuid4().hex,supplier_id='S1',subject='Crash recovery',body='Please confirm delivery.'))
+                decision=service.decision(approver,action['id'],DecisionInput(request_id=uuid.uuid4().hex,
+                    action_hash=action['action_hash'],decision='approve'))
+                self.assertEqual(await asyncio.wait_for(asyncio.to_thread(process.wait),40),73)
+                key=canonical_hash({'tenant':'alpha','logical_action':crash_id+'/followup'})
+                with engine.connect() as db:
+                    self.assertEqual(db.execute(select(func.count()).select_from(sandbox_messages).where(sandbox_messages.c.idempotency_key==key)).scalar_one(),1)
+                    self.assertEqual(db.execute(select(action_executions.c.state).where(action_executions.c.workflow_id==crash_id)).scalar_one(),'SENDING')
+                async with Worker(client,task_queue=crash_queue,workflows=[ProcurementWorkflow],activities=[Activities(service).step]):
+                    self.assertEqual(await asyncio.wait_for(crash_handle.result(),90),'COMPLETED')
+                recovered=service.get(owner,crash_id);self.assertEqual(recovered['execution']['state'],'SUCCEEDED')
+                self.assertEqual(service.dispatch('alpha',crash_id,decision['id'])['receipt'],recovered['execution']['receipt'])
+                with engine.connect() as db:
+                    self.assertEqual(db.execute(select(func.count()).select_from(sandbox_messages).where(sandbox_messages.c.idempotency_key==key)).scalar_one(),1)
+            finally:
+                if process.poll() is None:process.terminate();process.wait(timeout=10)
+            if os.getenv('TEMPORAL_PROOF_OUTPUT'):
+                target=Path(os.environ['TEMPORAL_PROOF_OUTPUT']);target.parent.mkdir(parents=True,exist_ok=True)
+                target.write_text(json.dumps({'verified_at':datetime.now(timezone.utc).isoformat(),
+                    'source_commit':os.getenv('EVALUATION_SOURCE_SHA'),'actual_temporal_service':True,
+                    'document_and_approval_wait_worker_restart':True,'continued_history_replayed':True,
+                    'expired_document_deadline_tested':True,'unknown_send_cancellation_reconciled':True,
+                    'real_worker_crash_after_acceptance_exit_code':73,'ledger_before_recovery':'SENDING',
+                    'recovered_state':'COMPLETED','provider_messages_for_crash_action':1,
+                    'automatic_duplicate_messages_for_crash_action':0,'real_emails_sent':0},indent=2)+'\n',encoding='utf-8')
             engine.dispose()

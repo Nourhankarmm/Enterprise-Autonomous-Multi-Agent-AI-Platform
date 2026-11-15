@@ -1,6 +1,6 @@
 """Relational schema with composite tenant ownership constraints."""
 from pathlib import Path
-from sqlalchemy import (MetaData, Table, Column, String, Integer, Float, Boolean,
+from sqlalchemy import (MetaData, Table, Column, String, Integer, BigInteger, Float, Boolean,
                         JSON, Text, LargeBinary, UniqueConstraint, ForeignKeyConstraint, CheckConstraint, create_engine, event)
 
 metadata = MetaData()
@@ -153,6 +153,11 @@ planner_calls = Table('planner_calls',metadata,
     Column('error_code',String),Column('occurred_at',String,nullable=False),
     ForeignKeyConstraint(['tenant_id'],['tenants.id']),
     ForeignKeyConstraint(['tenant_id','operation_id'],['operations.tenant_id','operations.id']))
+
+rate_windows = Table('rate_windows',metadata,
+    Column('scope',String,primary_key=True),Column('key_hash',String,primary_key=True),
+    Column('bucket',BigInteger,primary_key=True),Column('hits',Integer,nullable=False),
+    CheckConstraint('hits >= 1',name='positive_rate_hits'))
 
 def database_url(path):
     if '://' in path:

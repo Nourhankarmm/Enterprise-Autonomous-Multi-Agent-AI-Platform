@@ -5,15 +5,17 @@ import uuid
 from pathlib import Path
 from contextlib import asynccontextmanager
 from datetime import date, datetime, timezone
-from fastapi import Depends, FastAPI, HTTPException, Response
-from fastapi.responses import FileResponse
+from fastapi import Depends, FastAPI, HTTPException, Response, Request
+from fastapi.responses import FileResponse,JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, Field
 from sqlalchemy import insert, select, delete
 from .domain import assess_order
 from .store import MockERP, initialize
-from .database import engine_for, audit_events, sessions, document_families
+from .database import engine_for, audit_events, sessions, document_families,rate_windows
+from .security import (DatabaseRateLimiter,HardeningMiddleware,RateLimited,LimiterUnavailable,
+    positive_setting,validate_deployment,response_headers)
 from .auth import login, resolve_session, token_hash
 
 class Identity(BaseModel):
@@ -28,6 +30,7 @@ class LoginRequest(BaseModel):
 
 def create_app(db_path: str | None = None, tokens: dict[str, Identity] | None = None, planner=None) -> FastAPI:
     path = db_path or os.getenv('DATABASE_URL') or os.getenv('DATABASE_PATH', '.data/phase1.db')
+    injected_tokens=tokens is not None
     # Legacy development tokens are opt-in; explicit test injection remains supported.
     if tokens is None:
         tokens = {}
@@ -38,6 +41,16 @@ def create_app(db_path: str | None = None, tokens: dict[str, Identity] | None = 
                     tokens[token] = Identity(tenant_id=tenant, role='manager')
     token_map = {hashlib.sha256(key.encode()).digest(): value for key, value in tokens.items()}
     engine = engine_for(path)
+    validate_deployment(engine,injected_tokens)
+    rate_enabled=os.getenv('RATE_LIMIT_ENABLED','0' if injected_tokens else '1')=='1'
+    limiter=DatabaseRateLimiter(engine)
+    login_peer_limit=positive_setting('LOGIN_PEER_LIMIT',20)
+    login_account_limit=positive_setting('LOGIN_ACCOUNT_LIMIT',10)
+    login_window=positive_setting('LOGIN_WINDOW_SECONDS',300)
+    user_limit=positive_setting('AUTH_USER_LIMIT',180)
+    plan_limit=positive_setting('PLANNER_USER_LIMIT',6)
+    upload_limit=positive_setting('UPLOAD_USER_LIMIT',6)
+    search_limit=positive_setting('SEARCH_USER_LIMIT',30)
 
     @asynccontextmanager
     async def lifespan(app):
@@ -47,22 +60,28 @@ def create_app(db_path: str | None = None, tokens: dict[str, Identity] | None = 
         with engine.connect() as db:
             db.execute(select(audit_events.c.id).limit(1))
             db.execute(select(document_families.c.tenant_id).limit(1))
+            db.execute(select(rate_windows.c.scope).limit(1))
         yield
         engine.dispose()
 
-    app = FastAPI(title='Enterprise AI Operations - Phase 5', lifespan=lifespan)
+    app = FastAPI(title='Enterprise AI Operations - Phase 6', lifespan=lifespan,
+        docs_url=None if os.getenv('DEPLOYMENT_MODE')=='restricted' else '/docs',
+        redoc_url=None if os.getenv('DEPLOYMENT_MODE')=='restricted' else '/redoc',
+        openapi_url=None if os.getenv('DEPLOYMENT_MODE')=='restricted' else '/openapi.json')
+    app.state.rate_limiter=limiter
     bearer = HTTPBearer(auto_error=False)
 
-    @app.middleware('http')
-    async def security_headers(request, call_next):
-        response = await call_next(request)
-        response.headers['X-Content-Type-Options'] = 'nosniff'
-        response.headers['Content-Security-Policy'] = "default-src 'self'; script-src 'self'; style-src 'self'; frame-ancestors 'none'"
-        if request.url.path in {'/docs', '/redoc', '/docs/oauth2-redirect'}:
-            # FastAPI's bundled documentation HTML uses CDN assets and inline initialization.
-            response.headers['Content-Security-Policy'] = "default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'unsafe-inline'; style-src 'self' https://cdn.jsdelivr.net 'unsafe-inline'; img-src 'self' data: https://fastapi.tiangolo.com; frame-ancestors 'none'"
-        response.headers['Cache-Control'] = 'no-store'
-        return response
+    @app.exception_handler(RateLimited)
+    async def limited(request,error):
+        return JSONResponse(status_code=429,content={'detail':'Request rate limit reached'},headers={'Retry-After':str(error.retry_after)})
+    @app.exception_handler(LimiterUnavailable)
+    async def admission_unavailable(request,error):
+        return JSONResponse(status_code=503,content={'detail':'Request admission is temporarily unavailable'})
+    @app.exception_handler(Exception)
+    async def safe_internal_error(request,error):
+        request_id=str(uuid.uuid4())
+        return JSONResponse(status_code=500,content={'detail':'Internal service error','request_id':request_id},
+            headers=response_headers(request.url.path,request_id))
 
     def record(actor, action, resource, details=None):
         with engine.begin() as db:
@@ -70,21 +89,29 @@ def create_app(db_path: str | None = None, tokens: dict[str, Identity] | None = 
                 actor_id=actor.subject, action=action, resource=resource,
                 occurred_at=datetime.now(timezone.utc).isoformat(), details=details or {}))
 
-    def identity(credentials: HTTPAuthorizationCredentials | None = Depends(bearer)) -> Identity:
+    def identity(request:Request,credentials: HTTPAuthorizationCredentials | None = Depends(bearer)) -> Identity:
         if credentials:
             digest = hashlib.sha256(credentials.credentials.encode()).digest()
             for candidate, actor in token_map.items():
                 if hmac.compare_digest(digest, candidate):
+                    if rate_enabled:limiter.consume('user',actor.tenant_id+'/'+actor.subject,user_limit)
                     return actor
             user = resolve_session(engine, credentials.credentials)
             if user:
+                if rate_enabled:limiter.consume('user',user['tenant_id']+'/'+user['id'],user_limit)
                 return Identity(tenant_id=user['tenant_id'], role=user['role'], subject=user['id'])
         raise HTTPException(401, 'Valid session required', headers={'WWW-Authenticate': 'Bearer'})
 
-    def reader(actor: Identity = Depends(identity)) -> Identity:
+    def reader(request:Request,actor: Identity = Depends(identity)) -> Identity:
         if actor.role not in {'manager', 'analyst'}:
             record(actor, 'access.denied', 'procurement')
             raise HTTPException(403, 'Procurement read permission required')
+        if rate_enabled:
+            key=actor.tenant_id+'/'+actor.subject;route=request.url.path
+            if request.method=='POST' and (route=='/v1/operations' or route.endswith('/revise')):
+                limiter.consume('planning',key,plan_limit)
+            elif request.method=='POST' and route=='/v1/documents':limiter.consume('pdf_upload',key,upload_limit)
+            elif route=='/v1/documents/search':limiter.consume('search',key,search_limit)
         return actor
 
     @app.get('/health')
@@ -95,7 +122,10 @@ def create_app(db_path: str | None = None, tokens: dict[str, Identity] | None = 
         return {'status': 'ok', 'mode': 'synthetic', 'database': engine.dialect.name, 'auth': 'local-stub'}
 
     @app.post('/v1/auth/login')
-    def sign_in(body: LoginRequest):
+    def sign_in(body: LoginRequest,request:Request):
+        if rate_enabled:
+            limiter.consume('login_peer',request.client.host if request.client else 'unknown',login_peer_limit,login_window)
+            limiter.consume('login_account',body.username.casefold(),login_account_limit,login_window)
         result = login(engine, body.username, body.password)
         if not result:
             raise HTTPException(401, 'Invalid username or password')
@@ -151,14 +181,21 @@ def create_app(db_path: str | None = None, tokens: dict[str, Identity] | None = 
     from .agents.routes import register_agent_routes
     register_agent_routes(app,engine,path,reader,planner)
     from .documents.routes import register_document_routes
-    def document_reader(actor: Identity = Depends(identity)):
+    def document_reader(request:Request,actor: Identity = Depends(identity)):
         if actor.role not in {'manager','analyst','approver'}:raise HTTPException(403,'Evidence read permission required')
+        if rate_enabled and request.url.path=='/v1/documents/search':
+            limiter.consume('search',actor.tenant_id+'/'+actor.subject,search_limit)
         return actor
     register_document_routes(app,engine,reader,document_reader)
     from .workflows.routes import register_workflow_routes
     register_workflow_routes(app,engine,path,identity,reader)
     from .dashboard import register_dashboard_routes
     register_dashboard_routes(app,engine,identity)
+    from starlette.middleware.trustedhost import TrustedHostMiddleware
+    hosts=[h.strip() for h in os.getenv('ALLOWED_HOSTS','localhost,127.0.0.1,testserver').split(',') if h.strip()]
+    if not hosts or any('*' in h or '/' in h for h in hosts):raise RuntimeError('ALLOWED_HOSTS must contain exact host names')
+    app.add_middleware(TrustedHostMiddleware,allowed_hosts=hosts,www_redirect=False)
+    app.add_middleware(HardeningMiddleware,limiter=limiter,enabled=rate_enabled,require_https=os.getenv('REQUIRE_HTTPS')=='1')
 
     web = Path(__file__).resolve().parents[1] / 'web'
     app.mount('/assets', StaticFiles(directory=web), name='assets')

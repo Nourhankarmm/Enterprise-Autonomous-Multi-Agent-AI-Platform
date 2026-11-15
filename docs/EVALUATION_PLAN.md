@@ -1,7 +1,7 @@
 # Evaluation Plan
 
 ## Status
-Proposed evaluation methodology. **No results have been measured yet.** Targets below are preliminary and must be revisited after baseline testing.
+Phase 6 provides measured offline synthetic results and reproducible scripts; see PHASE_6_REVIEW.md and CI JSON artifacts. Live-model quality, independent business E2E success and production SLAs remain unmeasured. The broader methodology and provisional targets below remain future evaluation work.
 
 ## Evaluation goals
 Measure goal completion, planning quality, evidence fidelity, tool safety, recovery behavior, latency and cost under reproducible conditions.
