@@ -1,0 +1,689 @@
+{
+  "version": 1,
+  "seed": 20261115,
+  "policy": "calendar-days-v1",
+  "scope": "synthetic deterministic regression, not independent external validation or an LLM benchmark",
+  "oracle": "frozen quantity/date/grace arithmetic generated without importing production code; the hold-out label separates new regression cases from the original development fixtures, not an independently sampled population",
+  "cases": [
+    {
+      "id": "V01",
+      "split": "validation",
+      "as_of": "2024-03-01",
+      "quantity": 100,
+      "delivered": 110,
+      "due": "2023-12-02",
+      "grace": 0,
+      "critical": false,
+      "expected": {
+        "remaining_quantity": 0,
+        "late_days": 0,
+        "beyond_grace_days": 0,
+        "risk": "LOW",
+        "status": "ASSESSED"
+      }
+    },
+    {
+      "id": "V02",
+      "split": "validation",
+      "as_of": "2026-11-14",
+      "quantity": 1,
+      "delivered": 0,
+      "due": "2026-12-14",
+      "grace": null,
+      "critical": true,
+      "expected": {
+        "remaining_quantity": 1,
+        "late_days": 0,
+        "beyond_grace_days": null,
+        "risk": null,
+        "status": "INCOMPLETE_EVIDENCE"
+      }
+    },
+    {
+      "id": "V03",
+      "split": "validation",
+      "as_of": "2025-01-01",
+      "quantity": 1,
+      "delivered": 0,
+      "due": "2024-12-26",
+      "grace": 5,
+      "critical": false,
+      "expected": {
+        "remaining_quantity": 1,
+        "late_days": 6,
+        "beyond_grace_days": 1,
+        "risk": "MEDIUM",
+        "status": "ASSESSED"
+      }
+    },
+    {
+      "id": "V04",
+      "split": "validation",
+      "as_of": "2026-11-14",
+      "quantity": 7,
+      "delivered": 7,
+      "due": "2027-02-12",
+      "grace": 0,
+      "critical": false,
+      "expected": {
+        "remaining_quantity": 0,
+        "late_days": 0,
+        "beyond_grace_days": 0,
+        "risk": "LOW",
+        "status": "ASSESSED"
+      }
+    },
+    {
+      "id": "V05",
+      "split": "validation",
+      "as_of": "2024-03-01",
+      "quantity": 1,
+      "delivered": 11,
+      "due": "2024-03-02",
+      "grace": null,
+      "critical": false,
+      "expected": {
+        "remaining_quantity": 0,
+        "late_days": 0,
+        "beyond_grace_days": null,
+        "risk": null,
+        "status": "INCOMPLETE_EVIDENCE"
+      }
+    },
+    {
+      "id": "V06",
+      "split": "validation",
+      "as_of": "2026-11-14",
+      "quantity": 1000,
+      "delivered": 1000,
+      "due": "2026-11-15",
+      "grace": 1,
+      "critical": false,
+      "expected": {
+        "remaining_quantity": 0,
+        "late_days": 0,
+        "beyond_grace_days": 0,
+        "risk": "LOW",
+        "status": "ASSESSED"
+      }
+    },
+    {
+      "id": "V07",
+      "split": "validation",
+      "as_of": "2024-03-01",
+      "quantity": 0,
+      "delivered": 0,
+      "due": "2024-03-02",
+      "grace": null,
+      "critical": true,
+      "expected": {
+        "remaining_quantity": 0,
+        "late_days": 0,
+        "beyond_grace_days": null,
+        "risk": null,
+        "status": "INCOMPLETE_EVIDENCE"
+      }
+    },
+    {
+      "id": "V08",
+      "split": "validation",
+      "as_of": "2024-03-01",
+      "quantity": 100,
+      "delivered": 99,
+      "due": "2024-01-31",
+      "grace": 1,
+      "critical": true,
+      "expected": {
+        "remaining_quantity": 1,
+        "late_days": 30,
+        "beyond_grace_days": 29,
+        "risk": "HIGH",
+        "status": "ASSESSED"
+      }
+    },
+    {
+      "id": "V09",
+      "split": "validation",
+      "as_of": "2026-11-14",
+      "quantity": 0,
+      "delivered": 0,
+      "due": "2026-10-15",
+      "grace": 5,
+      "critical": false,
+      "expected": {
+        "remaining_quantity": 0,
+        "late_days": 0,
+        "beyond_grace_days": 0,
+        "risk": "LOW",
+        "status": "ASSESSED"
+      }
+    },
+    {
+      "id": "V10",
+      "split": "validation",
+      "as_of": "2025-01-01",
+      "quantity": 0,
+      "delivered": 0,
+      "due": "2025-01-02",
+      "grace": 1,
+      "critical": true,
+      "expected": {
+        "remaining_quantity": 0,
+        "late_days": 0,
+        "beyond_grace_days": 0,
+        "risk": "LOW",
+        "status": "ASSESSED"
+      }
+    },
+    {
+      "id": "H01",
+      "split": "held_out_regression",
+      "as_of": "2024-03-01",
+      "quantity": 1,
+      "delivered": 11,
+      "due": "2024-03-01",
+      "grace": 30,
+      "critical": true,
+      "expected": {
+        "remaining_quantity": 0,
+        "late_days": 0,
+        "beyond_grace_days": 0,
+        "risk": "LOW",
+        "status": "ASSESSED"
+      }
+    },
+    {
+      "id": "H02",
+      "split": "held_out_regression",
+      "as_of": "2024-03-01",
+      "quantity": 1000,
+      "delivered": 1010,
+      "due": "2024-02-24",
+      "grace": 0,
+      "critical": false,
+      "expected": {
+        "remaining_quantity": 0,
+        "late_days": 0,
+        "beyond_grace_days": 0,
+        "risk": "LOW",
+        "status": "ASSESSED"
+      }
+    },
+    {
+      "id": "H03",
+      "split": "held_out_regression",
+      "as_of": "2025-01-01",
+      "quantity": 0,
+      "delivered": 10,
+      "due": "2025-01-02",
+      "grace": 3,
+      "critical": false,
+      "expected": {
+        "remaining_quantity": 0,
+        "late_days": 0,
+        "beyond_grace_days": 0,
+        "risk": "LOW",
+        "status": "ASSESSED"
+      }
+    },
+    {
+      "id": "H04",
+      "split": "held_out_regression",
+      "as_of": "2025-01-01",
+      "quantity": 1000,
+      "delivered": 1010,
+      "due": "2025-01-01",
+      "grace": null,
+      "critical": false,
+      "expected": {
+        "remaining_quantity": 0,
+        "late_days": 0,
+        "beyond_grace_days": null,
+        "risk": null,
+        "status": "INCOMPLETE_EVIDENCE"
+      }
+    },
+    {
+      "id": "H05",
+      "split": "held_out_regression",
+      "as_of": "2025-01-01",
+      "quantity": 0,
+      "delivered": 0,
+      "due": "2024-12-02",
+      "grace": 3,
+      "critical": true,
+      "expected": {
+        "remaining_quantity": 0,
+        "late_days": 0,
+        "beyond_grace_days": 0,
+        "risk": "LOW",
+        "status": "ASSESSED"
+      }
+    },
+    {
+      "id": "H06",
+      "split": "held_out_regression",
+      "as_of": "2026-11-14",
+      "quantity": 1,
+      "delivered": 11,
+      "due": "2026-11-13",
+      "grace": 1,
+      "critical": false,
+      "expected": {
+        "remaining_quantity": 0,
+        "late_days": 0,
+        "beyond_grace_days": 0,
+        "risk": "LOW",
+        "status": "ASSESSED"
+      }
+    },
+    {
+      "id": "H07",
+      "split": "held_out_regression",
+      "as_of": "2026-11-14",
+      "quantity": 0,
+      "delivered": 0,
+      "due": "2026-11-20",
+      "grace": 0,
+      "critical": false,
+      "expected": {
+        "remaining_quantity": 0,
+        "late_days": 0,
+        "beyond_grace_days": 0,
+        "risk": "LOW",
+        "status": "ASSESSED"
+      }
+    },
+    {
+      "id": "H08",
+      "split": "held_out_regression",
+      "as_of": "2026-11-14",
+      "quantity": 1000,
+      "delivered": 0,
+      "due": "2026-10-15",
+      "grace": 5,
+      "critical": true,
+      "expected": {
+        "remaining_quantity": 1000,
+        "late_days": 30,
+        "beyond_grace_days": 25,
+        "risk": "HIGH",
+        "status": "ASSESSED"
+      }
+    },
+    {
+      "id": "H09",
+      "split": "held_out_regression",
+      "as_of": "2025-01-01",
+      "quantity": 1000,
+      "delivered": 0,
+      "due": "2024-12-31",
+      "grace": 1,
+      "critical": true,
+      "expected": {
+        "remaining_quantity": 1000,
+        "late_days": 1,
+        "beyond_grace_days": 0,
+        "risk": "LOW",
+        "status": "ASSESSED"
+      }
+    },
+    {
+      "id": "H10",
+      "split": "held_out_regression",
+      "as_of": "2024-03-01",
+      "quantity": 7,
+      "delivered": 6,
+      "due": "2024-03-31",
+      "grace": null,
+      "critical": true,
+      "expected": {
+        "remaining_quantity": 1,
+        "late_days": 0,
+        "beyond_grace_days": null,
+        "risk": null,
+        "status": "INCOMPLETE_EVIDENCE"
+      }
+    },
+    {
+      "id": "H11",
+      "split": "held_out_regression",
+      "as_of": "2024-03-01",
+      "quantity": 0,
+      "delivered": 0,
+      "due": "2024-03-31",
+      "grace": 0,
+      "critical": true,
+      "expected": {
+        "remaining_quantity": 0,
+        "late_days": 0,
+        "beyond_grace_days": 0,
+        "risk": "LOW",
+        "status": "ASSESSED"
+      }
+    },
+    {
+      "id": "H12",
+      "split": "held_out_regression",
+      "as_of": "2025-01-01",
+      "quantity": 1000,
+      "delivered": 0,
+      "due": "2024-10-03",
+      "grace": 3,
+      "critical": false,
+      "expected": {
+        "remaining_quantity": 1000,
+        "late_days": 90,
+        "beyond_grace_days": 87,
+        "risk": "MEDIUM",
+        "status": "ASSESSED"
+      }
+    },
+    {
+      "id": "H13",
+      "split": "held_out_regression",
+      "as_of": "2025-01-01",
+      "quantity": 1000,
+      "delivered": 1010,
+      "due": "2024-12-31",
+      "grace": 1,
+      "critical": false,
+      "expected": {
+        "remaining_quantity": 0,
+        "late_days": 0,
+        "beyond_grace_days": 0,
+        "risk": "LOW",
+        "status": "ASSESSED"
+      }
+    },
+    {
+      "id": "H14",
+      "split": "held_out_regression",
+      "as_of": "2026-11-14",
+      "quantity": 100,
+      "delivered": 100,
+      "due": "2026-11-13",
+      "grace": null,
+      "critical": false,
+      "expected": {
+        "remaining_quantity": 0,
+        "late_days": 0,
+        "beyond_grace_days": null,
+        "risk": null,
+        "status": "INCOMPLETE_EVIDENCE"
+      }
+    },
+    {
+      "id": "H15",
+      "split": "held_out_regression",
+      "as_of": "2024-03-01",
+      "quantity": 100,
+      "delivered": 100,
+      "due": "2024-01-31",
+      "grace": 30,
+      "critical": true,
+      "expected": {
+        "remaining_quantity": 0,
+        "late_days": 0,
+        "beyond_grace_days": 0,
+        "risk": "LOW",
+        "status": "ASSESSED"
+      }
+    },
+    {
+      "id": "H16",
+      "split": "held_out_regression",
+      "as_of": "2026-11-14",
+      "quantity": 1,
+      "delivered": 1,
+      "due": "2026-11-13",
+      "grace": 30,
+      "critical": true,
+      "expected": {
+        "remaining_quantity": 0,
+        "late_days": 0,
+        "beyond_grace_days": 0,
+        "risk": "LOW",
+        "status": "ASSESSED"
+      }
+    },
+    {
+      "id": "H17",
+      "split": "held_out_regression",
+      "as_of": "2024-03-01",
+      "quantity": 7,
+      "delivered": 3,
+      "due": "2024-03-02",
+      "grace": 0,
+      "critical": true,
+      "expected": {
+        "remaining_quantity": 4,
+        "late_days": 0,
+        "beyond_grace_days": 0,
+        "risk": "LOW",
+        "status": "ASSESSED"
+      }
+    },
+    {
+      "id": "H18",
+      "split": "held_out_regression",
+      "as_of": "2024-03-01",
+      "quantity": 7,
+      "delivered": 0,
+      "due": "2024-02-24",
+      "grace": 3,
+      "critical": true,
+      "expected": {
+        "remaining_quantity": 7,
+        "late_days": 6,
+        "beyond_grace_days": 3,
+        "risk": "HIGH",
+        "status": "ASSESSED"
+      }
+    },
+    {
+      "id": "H19",
+      "split": "held_out_regression",
+      "as_of": "2024-03-01",
+      "quantity": 1000,
+      "delivered": 999,
+      "due": "2023-12-02",
+      "grace": 3,
+      "critical": false,
+      "expected": {
+        "remaining_quantity": 1,
+        "late_days": 90,
+        "beyond_grace_days": 87,
+        "risk": "MEDIUM",
+        "status": "ASSESSED"
+      }
+    },
+    {
+      "id": "H20",
+      "split": "held_out_regression",
+      "as_of": "2025-01-01",
+      "quantity": 1000,
+      "delivered": 500,
+      "due": "2024-12-26",
+      "grace": 5,
+      "critical": false,
+      "expected": {
+        "remaining_quantity": 500,
+        "late_days": 6,
+        "beyond_grace_days": 1,
+        "risk": "MEDIUM",
+        "status": "ASSESSED"
+      }
+    },
+    {
+      "id": "H21",
+      "split": "held_out_regression",
+      "as_of": "2024-03-01",
+      "quantity": 0,
+      "delivered": 0,
+      "due": "2024-03-02",
+      "grace": 5,
+      "critical": false,
+      "expected": {
+        "remaining_quantity": 0,
+        "late_days": 0,
+        "beyond_grace_days": 0,
+        "risk": "LOW",
+        "status": "ASSESSED"
+      }
+    },
+    {
+      "id": "H22",
+      "split": "held_out_regression",
+      "as_of": "2025-01-01",
+      "quantity": 1,
+      "delivered": 1,
+      "due": "2024-12-31",
+      "grace": 3,
+      "critical": false,
+      "expected": {
+        "remaining_quantity": 0,
+        "late_days": 0,
+        "beyond_grace_days": 0,
+        "risk": "LOW",
+        "status": "ASSESSED"
+      }
+    },
+    {
+      "id": "H23",
+      "split": "held_out_regression",
+      "as_of": "2024-03-01",
+      "quantity": 0,
+      "delivered": 0,
+      "due": "2024-01-31",
+      "grace": 5,
+      "critical": false,
+      "expected": {
+        "remaining_quantity": 0,
+        "late_days": 0,
+        "beyond_grace_days": 0,
+        "risk": "LOW",
+        "status": "ASSESSED"
+      }
+    },
+    {
+      "id": "H24",
+      "split": "held_out_regression",
+      "as_of": "2026-11-14",
+      "quantity": 7,
+      "delivered": 0,
+      "due": "2026-12-14",
+      "grace": 30,
+      "critical": false,
+      "expected": {
+        "remaining_quantity": 7,
+        "late_days": 0,
+        "beyond_grace_days": 0,
+        "risk": "LOW",
+        "status": "ASSESSED"
+      }
+    },
+    {
+      "id": "H25",
+      "split": "held_out_regression",
+      "as_of": "2026-11-14",
+      "quantity": 1,
+      "delivered": 0,
+      "due": "2027-02-12",
+      "grace": 3,
+      "critical": false,
+      "expected": {
+        "remaining_quantity": 1,
+        "late_days": 0,
+        "beyond_grace_days": 0,
+        "risk": "LOW",
+        "status": "ASSESSED"
+      }
+    },
+    {
+      "id": "H26",
+      "split": "held_out_regression",
+      "as_of": "2026-11-14",
+      "quantity": 1,
+      "delivered": 0,
+      "due": "2026-10-15",
+      "grace": 1,
+      "critical": true,
+      "expected": {
+        "remaining_quantity": 1,
+        "late_days": 30,
+        "beyond_grace_days": 29,
+        "risk": "HIGH",
+        "status": "ASSESSED"
+      }
+    },
+    {
+      "id": "H27",
+      "split": "held_out_regression",
+      "as_of": "2026-11-14",
+      "quantity": 1000,
+      "delivered": 1000,
+      "due": "2026-11-13",
+      "grace": null,
+      "critical": true,
+      "expected": {
+        "remaining_quantity": 0,
+        "late_days": 0,
+        "beyond_grace_days": null,
+        "risk": null,
+        "status": "INCOMPLETE_EVIDENCE"
+      }
+    },
+    {
+      "id": "H28",
+      "split": "held_out_regression",
+      "as_of": "2026-11-14",
+      "quantity": 100,
+      "delivered": 99,
+      "due": "2026-11-08",
+      "grace": 5,
+      "critical": true,
+      "expected": {
+        "remaining_quantity": 1,
+        "late_days": 6,
+        "beyond_grace_days": 1,
+        "risk": "HIGH",
+        "status": "ASSESSED"
+      }
+    },
+    {
+      "id": "H29",
+      "split": "held_out_regression",
+      "as_of": "2026-11-14",
+      "quantity": 1,
+      "delivered": 0,
+      "due": "2026-11-14",
+      "grace": null,
+      "critical": false,
+      "expected": {
+        "remaining_quantity": 1,
+        "late_days": 0,
+        "beyond_grace_days": null,
+        "risk": null,
+        "status": "INCOMPLETE_EVIDENCE"
+      }
+    },
+    {
+      "id": "H30",
+      "split": "held_out_regression",
+      "as_of": "2024-03-01",
+      "quantity": 1,
+      "delivered": 1,
+      "due": "2024-03-07",
+      "grace": 1,
+      "critical": false,
+      "expected": {
+        "remaining_quantity": 0,
+        "late_days": 0,
+        "beyond_grace_days": 0,
+        "risk": "LOW",
+        "status": "ASSESSED"
+      }
+    }
+  ]
+}

@@ -36,7 +36,7 @@ def register_agent_routes(app,engine,path,reader,planner=None):
     @app.get('/v1/agent-capabilities')
     def capabilities(actor=Depends(reader)):
         mode=getattr(planner,'name',None) or os.getenv('PLANNER_PROVIDER','demo')
-        configured=bool(os.getenv('GEMINI_API_KEY')) if mode=='gemini' else bool(mode=='openai' and os.getenv('OPENAI_API_KEY') and os.getenv('OPENAI_MODEL'))
+        configured=bool(os.getenv('GEMINI_API_KEY') or os.getenv('GEMINI_API_KEY_FILE')) if mode=='gemini' else bool(mode=='openai' and (os.getenv('OPENAI_API_KEY') or os.getenv('OPENAI_API_KEY_FILE')) and os.getenv('OPENAI_MODEL'))
         return {'planner_provider':mode,'live_model_configured':configured,
             'tools':list(TOOLS),'sample_goal':DEMO_GOAL,'max_replans':2,'max_total_attempts':12,
             'runtime_seconds':30,'external_actions':False}

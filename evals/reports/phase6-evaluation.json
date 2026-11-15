@@ -1,0 +1,566 @@
+{
+  "schema_version": 1,
+  "evaluated_at": "2026-11-15T21:49:02.756701+00:00",
+  "status": "PASS",
+  "provider": "demo",
+  "live_model_evaluated": false,
+  "repetitions": 5,
+  "environment": {
+    "python": "3.14.7",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "cpu_count": 8,
+    "transport": "in-process ASGI TestClient",
+    "database": "temporary SQLite",
+    "rate_limiting": "disabled through explicit test identity injection"
+  },
+  "source": {
+    "planner_prompt_sha256": "49cf2e26378b8450555c605cefa5a4bd48386e4de726993b4393e291acafefaf",
+    "commit": "31b96cb2e1cdbb5888c08fe1f74d6904da2f710e",
+    "dirty": false
+  },
+  "datasets": {
+    "calculation-cases.json": "d280fa0528cebc216c052f9d5b0bc7794fbd6962380a4981387881ce02456f00",
+    "phase6-regression.json": "b91db5a4d24af3a6c66529986e464ec8aa3565911072129680d232d11ae0759b",
+    "business-scenarios.json": "4d1301b14b1aab6d797ba731849feb2aa01299952a984e2e51870de127c61d58",
+    "procurement.json": "7cfd91e921423cd24136b3bf506c49624bc3b4f45052b41a3142792fb38bbd24",
+    "retrieval_pdf_checksums": {
+      "S1": "9ab6e968e621bbcd3ef8e422bd150b5b7cf2fd15ff849e084a1d0e0de6692fb2",
+      "S3": "cec331d2ba303674ca6d417784a88b821581ceca0d6c1ceb29853486af0137b8"
+    }
+  },
+  "checks": [
+    {
+      "name": "calculator/on_due_date",
+      "passed": true,
+      "split": "development"
+    },
+    {
+      "name": "calculator/future_due",
+      "passed": true,
+      "split": "development"
+    },
+    {
+      "name": "calculator/one_day_critical",
+      "passed": true,
+      "split": "development"
+    },
+    {
+      "name": "calculator/one_day_noncritical",
+      "passed": true,
+      "split": "development"
+    },
+    {
+      "name": "calculator/within_grace",
+      "passed": true,
+      "split": "development"
+    },
+    {
+      "name": "calculator/grace_boundary",
+      "passed": true,
+      "split": "development"
+    },
+    {
+      "name": "calculator/beyond_grace",
+      "passed": true,
+      "split": "development"
+    },
+    {
+      "name": "calculator/partial_delivery",
+      "passed": true,
+      "split": "development"
+    },
+    {
+      "name": "calculator/complete_delivery",
+      "passed": true,
+      "split": "development"
+    },
+    {
+      "name": "calculator/over_delivery",
+      "passed": true,
+      "split": "development"
+    },
+    {
+      "name": "calculator/month_boundary",
+      "passed": true,
+      "split": "development"
+    },
+    {
+      "name": "calculator/missing_contract_overdue",
+      "passed": true,
+      "split": "development"
+    },
+    {
+      "name": "calculator/missing_contract_future",
+      "passed": true,
+      "split": "development"
+    },
+    {
+      "name": "calculator/partial_within_grace",
+      "passed": true,
+      "split": "development"
+    },
+    {
+      "name": "calculator/long_grace",
+      "passed": true,
+      "split": "development"
+    },
+    {
+      "name": "calculator/V01",
+      "passed": true,
+      "split": "validation"
+    },
+    {
+      "name": "calculator/V02",
+      "passed": true,
+      "split": "validation"
+    },
+    {
+      "name": "calculator/V03",
+      "passed": true,
+      "split": "validation"
+    },
+    {
+      "name": "calculator/V04",
+      "passed": true,
+      "split": "validation"
+    },
+    {
+      "name": "calculator/V05",
+      "passed": true,
+      "split": "validation"
+    },
+    {
+      "name": "calculator/V06",
+      "passed": true,
+      "split": "validation"
+    },
+    {
+      "name": "calculator/V07",
+      "passed": true,
+      "split": "validation"
+    },
+    {
+      "name": "calculator/V08",
+      "passed": true,
+      "split": "validation"
+    },
+    {
+      "name": "calculator/V09",
+      "passed": true,
+      "split": "validation"
+    },
+    {
+      "name": "calculator/V10",
+      "passed": true,
+      "split": "validation"
+    },
+    {
+      "name": "calculator/H01",
+      "passed": true,
+      "split": "held_out_regression"
+    },
+    {
+      "name": "calculator/H02",
+      "passed": true,
+      "split": "held_out_regression"
+    },
+    {
+      "name": "calculator/H03",
+      "passed": true,
+      "split": "held_out_regression"
+    },
+    {
+      "name": "calculator/H04",
+      "passed": true,
+      "split": "held_out_regression"
+    },
+    {
+      "name": "calculator/H05",
+      "passed": true,
+      "split": "held_out_regression"
+    },
+    {
+      "name": "calculator/H06",
+      "passed": true,
+      "split": "held_out_regression"
+    },
+    {
+      "name": "calculator/H07",
+      "passed": true,
+      "split": "held_out_regression"
+    },
+    {
+      "name": "calculator/H08",
+      "passed": true,
+      "split": "held_out_regression"
+    },
+    {
+      "name": "calculator/H09",
+      "passed": true,
+      "split": "held_out_regression"
+    },
+    {
+      "name": "calculator/H10",
+      "passed": true,
+      "split": "held_out_regression"
+    },
+    {
+      "name": "calculator/H11",
+      "passed": true,
+      "split": "held_out_regression"
+    },
+    {
+      "name": "calculator/H12",
+      "passed": true,
+      "split": "held_out_regression"
+    },
+    {
+      "name": "calculator/H13",
+      "passed": true,
+      "split": "held_out_regression"
+    },
+    {
+      "name": "calculator/H14",
+      "passed": true,
+      "split": "held_out_regression"
+    },
+    {
+      "name": "calculator/H15",
+      "passed": true,
+      "split": "held_out_regression"
+    },
+    {
+      "name": "calculator/H16",
+      "passed": true,
+      "split": "held_out_regression"
+    },
+    {
+      "name": "calculator/H17",
+      "passed": true,
+      "split": "held_out_regression"
+    },
+    {
+      "name": "calculator/H18",
+      "passed": true,
+      "split": "held_out_regression"
+    },
+    {
+      "name": "calculator/H19",
+      "passed": true,
+      "split": "held_out_regression"
+    },
+    {
+      "name": "calculator/H20",
+      "passed": true,
+      "split": "held_out_regression"
+    },
+    {
+      "name": "calculator/H21",
+      "passed": true,
+      "split": "held_out_regression"
+    },
+    {
+      "name": "calculator/H22",
+      "passed": true,
+      "split": "held_out_regression"
+    },
+    {
+      "name": "calculator/H23",
+      "passed": true,
+      "split": "held_out_regression"
+    },
+    {
+      "name": "calculator/H24",
+      "passed": true,
+      "split": "held_out_regression"
+    },
+    {
+      "name": "calculator/H25",
+      "passed": true,
+      "split": "held_out_regression"
+    },
+    {
+      "name": "calculator/H26",
+      "passed": true,
+      "split": "held_out_regression"
+    },
+    {
+      "name": "calculator/H27",
+      "passed": true,
+      "split": "held_out_regression"
+    },
+    {
+      "name": "calculator/H28",
+      "passed": true,
+      "split": "held_out_regression"
+    },
+    {
+      "name": "calculator/H29",
+      "passed": true,
+      "split": "held_out_regression"
+    },
+    {
+      "name": "calculator/H30",
+      "passed": true,
+      "split": "held_out_regression"
+    },
+    {
+      "name": "offline_plan/1",
+      "passed": true
+    },
+    {
+      "name": "offline_plan/2",
+      "passed": true
+    },
+    {
+      "name": "offline_plan/3",
+      "passed": true
+    },
+    {
+      "name": "offline_plan/4",
+      "passed": true
+    },
+    {
+      "name": "offline_plan/5",
+      "passed": true
+    },
+    {
+      "name": "offline_plan/6",
+      "passed": true
+    },
+    {
+      "name": "offline_plan/7",
+      "passed": true
+    },
+    {
+      "name": "offline_plan/8",
+      "passed": true
+    },
+    {
+      "name": "offline_plan/9",
+      "passed": true
+    },
+    {
+      "name": "offline_plan/10",
+      "passed": true
+    },
+    {
+      "name": "offline_plan/11",
+      "passed": true
+    },
+    {
+      "name": "offline_plan/12",
+      "passed": true
+    },
+    {
+      "name": "offline_plan/13",
+      "passed": true
+    },
+    {
+      "name": "offline_plan/14",
+      "passed": true
+    },
+    {
+      "name": "offline_plan/15",
+      "passed": true
+    },
+    {
+      "name": "offline_plan/16",
+      "passed": true
+    },
+    {
+      "name": "offline_plan/17",
+      "passed": true
+    },
+    {
+      "name": "offline_plan/18",
+      "passed": true
+    },
+    {
+      "name": "offline_plan/19",
+      "passed": true
+    },
+    {
+      "name": "offline_plan/20",
+      "passed": true
+    },
+    {
+      "name": "missing_evidence_abstention",
+      "passed": true
+    },
+    {
+      "name": "reviewed_graph/0",
+      "passed": true
+    },
+    {
+      "name": "reviewed_graph/1",
+      "passed": true
+    },
+    {
+      "name": "reviewed_graph/2",
+      "passed": true
+    },
+    {
+      "name": "reviewed_graph/3",
+      "passed": true
+    },
+    {
+      "name": "reviewed_graph/4",
+      "passed": true
+    },
+    {
+      "name": "citation_span_integrity",
+      "passed": true
+    },
+    {
+      "name": "curated_retrieval/calendar",
+      "passed": true
+    },
+    {
+      "name": "curated_retrieval/Delivery due date",
+      "passed": true
+    },
+    {
+      "name": "curated_retrieval_negative",
+      "passed": true
+    },
+    {
+      "name": "cross_tenant_order_denied",
+      "passed": true
+    },
+    {
+      "name": "same_tenant_private_pdf_denied",
+      "passed": true
+    },
+    {
+      "name": "cross_tenant_pdf_denied",
+      "passed": true
+    },
+    {
+      "name": "forged_tenant_ignored",
+      "passed": true
+    },
+    {
+      "name": "readonly_side_effects",
+      "passed": true
+    }
+  ],
+  "metrics": {
+    "calculator": {
+      "unique_cases": 55,
+      "passed": 55,
+      "confidence_interval": null,
+      "interval_note": "Fixed curated cases are not an IID population sample."
+    },
+    "offline_plan_schema": {
+      "generated": 20,
+      "valid": 20,
+      "ready": 15,
+      "safe_clarification": 5,
+      "general_language_understanding_claimed": false
+    },
+    "reviewed_graph": {
+      "runs": 5,
+      "correct": 5,
+      "planner": "fixed demo",
+      "runtime": "bounded synchronous LangGraph, not Temporal benchmark"
+    },
+    "citation_span_integrity": {
+      "checked": 20,
+      "matching": 20,
+      "legal_semantic_precision_claimed": false
+    },
+    "curated_page_recall_at_5": {
+      "positive_queries": 2,
+      "mean": 1.0,
+      "negative_queries": 1,
+      "negative_hits": 0,
+      "scope": "two permitted synthetic documents, exact labelled terms; not semantic RAG"
+    },
+    "sandbox_side_effects_in_readonly_workload": 0,
+    "offline_model_cost": {
+      "provider": "demo",
+      "calls": 6,
+      "model_estimate_usd": "0",
+      "infrastructure_cost": null,
+      "is_invoice": false
+    }
+  },
+  "latency": {
+    "calculator_development": {
+      "n": 75,
+      "p50_ms": 0.0088,
+      "p95_ms": 0.0175,
+      "mean_ms": 0.011563,
+      "stdev_ms": 0.005538,
+      "estimator": "median / nearest-rank P95; descriptive, no SLA"
+    },
+    "calculator_validation": {
+      "n": 50,
+      "p50_ms": 0.0135,
+      "p95_ms": 0.0176,
+      "mean_ms": 0.01445,
+      "stdev_ms": 0.003544,
+      "estimator": "median / nearest-rank P95; descriptive, no SLA"
+    },
+    "calculator_held_out_regression": {
+      "n": 150,
+      "p50_ms": 0.0146,
+      "p95_ms": 0.0211,
+      "mean_ms": 0.015764,
+      "stdev_ms": 0.005463,
+      "estimator": "median / nearest-rank P95; descriptive, no SLA"
+    },
+    "offline_planner": {
+      "n": 20,
+      "p50_ms": 0.0853,
+      "p95_ms": 0.3321,
+      "mean_ms": 0.118215,
+      "stdev_ms": 0.114097,
+      "estimator": "median / nearest-rank P95; descriptive, no SLA"
+    },
+    "graph_missing_evidence": {
+      "n": 1,
+      "p50_ms": 832.9039,
+      "p95_ms": 832.9039,
+      "mean_ms": 832.9039,
+      "stdev_ms": 0,
+      "estimator": "median / nearest-rank P95; descriptive, no SLA"
+    },
+    "bounded_pdf_ingestion": {
+      "n": 5,
+      "p50_ms": 1022.903,
+      "p95_ms": 1136.7238,
+      "mean_ms": 1042.70884,
+      "stdev_ms": 88.905178,
+      "estimator": "median / nearest-rank P95; descriptive, no SLA"
+    },
+    "synchronous_reviewed_graph": {
+      "n": 5,
+      "p50_ms": 1112.9237,
+      "p95_ms": 1318.1801,
+      "mean_ms": 1170.94052,
+      "stdev_ms": 113.685511,
+      "estimator": "median / nearest-rank P95; descriptive, no SLA"
+    },
+    "lexical_retrieval": {
+      "n": 2,
+      "p50_ms": 34.91305,
+      "p95_ms": 38.8007,
+      "mean_ms": 34.91305,
+      "stdev_ms": 5.497967,
+      "estimator": "median / nearest-rank P95; descriptive, no SLA"
+    }
+  },
+  "limitations": [
+    "Curated synthetic deterministic regression, not independent external/LLM evaluation.",
+    "Latency includes only the named local workloads; no network/provider latency, infrastructure cost or production SLA.",
+    "Citation spans and explicit fixture facts are checked; legal interpretation and semantic RAG are not evaluated.",
+    "Temporal crash/replay and dispatch safety are measured by the separate regression/Compose suites, not this synchronous benchmark."
+  ],
+  "summary": {
+    "checks": 90,
+    "passed": 90,
+    "failed": 0
+  }
+}

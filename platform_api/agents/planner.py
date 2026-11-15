@@ -59,10 +59,13 @@ class OpenAIPlanner:
         if not self.model:
             raise PlannerUnavailable('Set OPENAI_MODEL on the server')
         if client is None:
-            if not os.getenv('OPENAI_API_KEY'):
+            from ..security import secret_value
+            try:key=secret_value('OPENAI_API_KEY')
+            except RuntimeError:raise PlannerUnavailable('OpenAI secret file is unavailable or invalid') from None
+            if not key:
                 raise PlannerUnavailable('Configure OPENAI_API_KEY securely on the server')
             from openai import OpenAI
-            client=OpenAI(timeout=20,max_retries=0)
+            client=OpenAI(api_key=key,timeout=20,max_retries=0)
         self.client=client
 
     def propose(self, goal, as_of):
@@ -102,7 +105,9 @@ class GeminiPlanner:
         self.model=(model or os.getenv('GEMINI_MODEL') or GEMINI_DEFAULT_MODEL).removeprefix('models/')
         if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._-]{0,99}',self.model):
             raise PlannerUnavailable('Invalid Gemini model ID')
-        self.api_key=(api_key or os.getenv('GEMINI_API_KEY') or '').strip()
+        from ..security import secret_value
+        try:self.api_key=(api_key or secret_value('GEMINI_API_KEY')).strip()
+        except RuntimeError:raise PlannerUnavailable('Gemini secret file is unavailable or invalid') from None
         if not self.api_key:raise PlannerUnavailable('Configure GEMINI_API_KEY securely on the server')
         self.client=client
 

@@ -19,7 +19,7 @@ def main():
     worker=subprocess.Popen([sys.executable,'-m','platform_api.workflows.worker'],cwd=root,env=env,
         creationflags=subprocess.CREATE_NO_WINDOW if sys.platform=='win32' else 0)
     try:
-        subprocess.call([sys.executable,'-m','uvicorn','platform_api.main:app','--host','127.0.0.1','--port',str(args.port)],cwd=root,env=env)
+        subprocess.call([sys.executable,'-m','uvicorn','platform_api.main:app','--host','127.0.0.1','--port',str(args.port),'--no-proxy-headers'],cwd=root,env=env)
     finally:worker.terminate();worker.wait(timeout=15)
 
 if __name__=='__main__':main()
