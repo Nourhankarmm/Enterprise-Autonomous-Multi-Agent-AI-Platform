@@ -5,7 +5,7 @@ import unittest
 from datetime import date
 from unittest.mock import patch
 import httpx
-from platform_api.agents.planner import GeminiPlanner,DemoPlanner,PlannerUnavailable,configured_planner,GEMINI_DEFAULT_MODEL
+from platform_api.agents.planner import GeminiPlanner,DemoPlanner,PlannerUnavailable,configured_planner,GEMINI_DEFAULT_MODEL,gemini_schema
 from platform_api.agents.schemas import DEMO_GOAL,Proposal
 
 class GeminiTests(unittest.TestCase):
@@ -25,12 +25,12 @@ class GeminiTests(unittest.TestCase):
         self.assertNotIn('test-secret',str(captured[0].url))
         self.assertEqual(captured[0].headers['x-goog-api-key'],'test-secret')
         body=json.loads(captured[0].content)
-        self.assertEqual(body['generationConfig']['responseJsonSchema'],Proposal.model_json_schema())
+        self.assertEqual(body['generationConfig']['responseJsonSchema'],gemini_schema())
         self.assertNotIn('tools',body);self.assertNotIn('tenant',body['contents'][0]['parts'][0]['text'])
         self.assertNotIn('test-secret',captured[0].content.decode())
 
     def test_http_errors_are_redacted_and_not_retried(self):
-        for status in (401,403,404,429,500):
+        for status in (400,401,403,404,429,500):
             calls=[]
             def handler(req):calls.append(req);return httpx.Response(status,json={'error':{'message':'private-secret'}})
             with self.subTest(status=status),httpx.Client(transport=httpx.MockTransport(handler)) as client:

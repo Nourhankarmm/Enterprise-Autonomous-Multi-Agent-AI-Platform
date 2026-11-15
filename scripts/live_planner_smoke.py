@@ -29,7 +29,7 @@ def verify(base_url,username,password):
             raise AssertionError('This server is not configured for a live model planner')
         op=request('/v1/operations',token,payload={
             'goal':'راجع تأخير طلبات الشراء المفتوحة للمورد S1 فقط، واحسب تجاوز السماح وتحقق من الأدلة.',
-            'as_of':'2026-11-14'},expected=201)
+            'as_of':'2026-11-14'},expected=201,timeout=30)
         assert op['planner_provider']==mode['planner_provider'] and op['state']=='PLANNED', 'Live planner did not produce a ready plan'
         read=next(t for t in op['plan']['proposal']['tasks'] if t['capability']=='purchase_orders.read')
         assert read['filters']['supplier_id']=='S1', 'Planner did not preserve the requested supplier filter'

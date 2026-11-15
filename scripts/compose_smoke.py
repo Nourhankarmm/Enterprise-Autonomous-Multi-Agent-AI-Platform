@@ -17,19 +17,24 @@ def compose(*args, **kwargs):
     return subprocess.run(['docker', 'compose', *args], check=True, timeout=120, **kwargs)
 
 
-def request(path, token=None, payload=None, method=None, expected=200, extra_headers=None):
+def request(path, token=None, payload=None, method=None, expected=200, extra_headers=None, timeout=10):
     headers = {'Content-Type': 'application/json', **(extra_headers or {})}
     if token:
         headers['Authorization'] = 'Bearer ' + token
     data = json.dumps(payload).encode() if payload is not None else None
     req = urllib.request.Request(BASE_URL + path, data=data, headers=headers, method=method)
     try:
-        response = urllib.request.urlopen(req, timeout=10)
+        response = urllib.request.urlopen(req, timeout=timeout)
     except urllib.error.HTTPError as error:
         response = error
     with response:
         if response.status != expected:
-            raise AssertionError(f'{method or "GET"} {path}: expected {expected}, got {response.status}')
+            raw=response.read()
+            try:detail=json.loads(raw).get('detail','')
+            except (ValueError,AttributeError):detail=''
+            suffix=': '+detail[:300] if isinstance(detail,str) else ''
+            actual_method=method or ('POST' if payload is not None else 'GET')
+            raise AssertionError(f'{actual_method} {path}: expected {expected}, got {response.status}{suffix}')
         raw = response.read()
         if not raw:
             return None

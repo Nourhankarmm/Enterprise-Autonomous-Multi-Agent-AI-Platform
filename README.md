@@ -1,6 +1,6 @@
 # Enterprise Autonomous Multi-Agent AI Platform
 
-Phase 0 planning/data and Phase 1 application foundation are implemented. Phase 2 now adds reviewed plans, a bounded LangGraph runtime and persisted task traces; live-model acceptance awaits local API configuration. Phase 1 uses a **local authentication stub**, not OIDC/SSO. Contract ingestion, Temporal, approvals and sending belong to later phases.
+Phase 0 planning/data and Phase 1 application foundation are implemented. Phase 2 now adds reviewed plans, a bounded LangGraph runtime and persisted task traces; real Gemini model acceptance is verified in `evals/reports/phase2-live-gemini.json`. Phase 1 uses a **local authentication stub**, not OIDC/SSO. Contract ingestion, Temporal, approvals and sending belong to later phases.
 
 See [Phase 2 review](docs/PHASE_2_REVIEW.md), [Phase 1 review](docs/PHASE_1_REVIEW.md), [roadmap](docs/ROADMAP.md), and [Phase 0 rules](docs/PHASE_0_SPEC.md).
 
@@ -102,7 +102,7 @@ To verify a real model-generated supplier-scoped operation without exposing keys
 
 The hidden prompt asks for your **local account password**, not the OpenAI key. This opt-in test makes one live planner call through the configured Gemini/OpenAI server, checks the S1 filter and known fixture results, revokes its login session, and saves credential-free evidence to `.data/live-planner-verification.json` on success.
 
-Alternatively set server environment variables `PLANNER_PROVIDER=openai`, `OPENAI_MODEL` and `OPENAI_API_KEY` before starting uvicorn or Compose. For Gemini use `PLANNER_PROVIDER=gemini`, `GEMINI_MODEL` and `GEMINI_API_KEY`. Demo remains the default; live errors never silently fall back. No live API verification is claimed until an actual model-generated operation succeeds. The SDK serialization/parser contract is tested offline.
+Alternatively set server environment variables `PLANNER_PROVIDER=openai`, `OPENAI_MODEL` and `OPENAI_API_KEY` before starting uvicorn or Compose. For Gemini use `PLANNER_PROVIDER=gemini`, `GEMINI_MODEL` and `GEMINI_API_KEY`. Demo remains the default; live errors never silently fall back. A real Gemini model-generated operation passed on 15 November 2026; see `evals/reports/phase2-live-gemini.json`. No live OpenAI test is claimed. Provider contracts also have offline coverage.
 
 Operations are scoped to their requesting user and company. Plans are hash/version-bound, require confirmation and permit at most two revisions. The read-only runner persists every task result and attempt. A short lease prevents concurrent execution; explicit resume reuses successful snapshots while honoring the original 30-second deadline and attempt budgets. This is synchronous API execution, not a Temporal/background workflow engine.
 

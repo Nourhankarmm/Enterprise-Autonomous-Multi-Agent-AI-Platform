@@ -2,6 +2,7 @@
 import os
 import re
 import httpx
+from pydantic import ValidationError
 from dataclasses import dataclass, field
 from .schemas import Proposal, DEMO_GOAL, TOOLS
 
@@ -79,6 +80,18 @@ class OpenAIPlanner:
 
 
 
+def gemini_schema():
+    schema=Proposal.model_json_schema()
+    definitions=schema.get('$defs',{})
+    def inline(value):
+        if isinstance(value,list):return [inline(item) for item in value]
+        if not isinstance(value,dict):return value
+        if '$ref' in value:
+            name=value['$ref'].split('/')[-1]
+            return inline(definitions[name])
+        return {key:({name:inline(child) for name,child in item.items()} if key=='properties' else inline(item)) for key,item in value.items() if key in {'type','properties','required','enum','anyOf','items'}}
+    return inline(schema)
+
 GEMINI_DEFAULT_MODEL='gemini-3.1-flash-lite'
 
 class GeminiPlanner:
@@ -87,7 +100,7 @@ class GeminiPlanner:
         self.model=(model or os.getenv('GEMINI_MODEL') or GEMINI_DEFAULT_MODEL).removeprefix('models/')
         if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._-]{0,99}',self.model):
             raise PlannerUnavailable('Invalid Gemini model ID')
-        self.api_key=api_key or os.getenv('GEMINI_API_KEY')
+        self.api_key=(api_key or os.getenv('GEMINI_API_KEY') or '').strip()
         if not self.api_key:raise PlannerUnavailable('Configure GEMINI_API_KEY securely on the server')
         self.client=client
 
@@ -96,12 +109,32 @@ class GeminiPlanner:
             'systemInstruction':{'parts':[{'text':SYSTEM}]},
             'contents':[{'role':'user','parts':[{'text':f'Analysis date: {as_of.isoformat()}\nUntrusted goal:\n{goal}'}]}],
             'generationConfig':{'candidateCount':1,'maxOutputTokens':4096,
-                'responseMimeType':'application/json','responseJsonSchema':Proposal.model_json_schema()}}
+                'responseMimeType':'application/json','responseJsonSchema':gemini_schema()}}
         owned=self.client is None
         client=self.client or httpx.Client(timeout=20,follow_redirects=False,trust_env=False)
         try:
             response=client.post('https://generativelanguage.googleapis.com/v1beta/models/'+self.model+':generateContent',
                 headers={'x-goog-api-key':self.api_key},json=payload)
+            if response.status_code==400:
+                try:
+                    error=response.json().get('error',{})
+                    message=error.get('message','')
+                    violations=[v for d in error.get('details',[]) if isinstance(d,dict) and d.get('@type','').endswith('google.rpc.BadRequest') for v in d.get('fieldViolations',[]) if isinstance(v,dict)]
+                    if violations:
+                        message+=' '+ '; '.join(str(v.get('field',''))+': '+str(v.get('description','')) for v in violations)
+
+                    reasons={d.get('reason') for d in error.get('details',[]) if isinstance(d,dict)}
+                except (ValueError,AttributeError,TypeError):message='';reasons=set()
+                if 'API_KEY_INVALID' in reasons or 'API key not valid' in message:
+                    raise PlannerUnavailable('Gemini API key is invalid; copy a valid key from AI Studio into the hidden prompt')
+                if any(word in message for word in ('schema','Schema','generation_config','generationConfig')):
+                    raise PlannerUnavailable('Gemini rejected the structured-output schema (HTTP 400); check planner schema compatibility')
+                if isinstance(message,str) and message.lower().startswith(('api key','user location','request','invalid','model','permission','unable','please')):
+                    safe=message.replace(self.api_key,'[REDACTED]')
+                    safe=re.sub(r'[A-Za-z0-9_-]{32,}','[REDACTED]',safe)
+                    safe=' '.join(safe.split())[:350]
+                    raise PlannerUnavailable('Gemini rejected the request (HTTP 400): '+safe)
+                raise PlannerUnavailable('Gemini rejected the request (HTTP 400); check project/key access and model configuration')
             if response.status_code==429:
                 raise PlannerUnavailable('Gemini free-tier quota/rate limit reached; wait and retry later')
             if response.status_code in {401,403}:
@@ -120,8 +153,14 @@ class GeminiPlanner:
                 'input_tokens':int(usage.get('promptTokenCount',0)),
                 'output_tokens':int(usage.get('candidatesTokenCount',0))+int(usage.get('thoughtsTokenCount',0))})
         except PlannerUnavailable:raise
+        except ValidationError as error:
+            fields=['.'.join(str(part) for part in item['loc'])+':'+item['type'] for item in error.errors(include_input=False)[:3]]
+            safe=re.sub(r'[A-Za-z0-9_-]{32,}','[REDACTED]','; '.join(fields))[:250]
+            raise PlannerUnavailable('Gemini returned invalid plan fields: '+safe) from None
+        except httpx.TimeoutException:
+            raise PlannerUnavailable('Gemini timed out; no plan was executed') from None
         except Exception:
-            raise PlannerUnavailable('Gemini request or structured output validation failed; no plan was executed') from None
+            raise PlannerUnavailable('Gemini request or JSON parsing failed; no plan was executed') from None
         finally:
             if owned:client.close()
 

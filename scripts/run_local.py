@@ -26,6 +26,6 @@ elif provider=='gemini':
 print(f"Starting {provider} planner at http://127.0.0.1:{args.port}")
 
 try:
-    raise SystemExit(subprocess.call([sys.executable,'-m','uvicorn','platform_api.main:app','--host','127.0.0.1','--port',str(args.port)],env=env,cwd=Path(__file__).resolve().parents[1]))
+    raise SystemExit(subprocess.call([sys.executable,'-m','uvicorn','platform_api.main:app','--host','127.0.0.1','--port',str(args.port),*(['--reload','--reload-dir','platform_api'] if provider=='gemini' else [])],env=env,cwd=Path(__file__).resolve().parents[1]))
 except KeyboardInterrupt:
     pass
