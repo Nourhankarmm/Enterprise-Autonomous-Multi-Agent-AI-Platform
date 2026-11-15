@@ -101,6 +101,13 @@ class PhaseSevenTests(unittest.TestCase):
             self.assertEqual(caught.exception.status,422);kill.assert_called_once_with(process)
             environment=__import__('platform_api.documents.ocr',fromlist=['subprocess']).subprocess.Popen.call_args.kwargs['env']
             self.assertNotIn('DATABASE_URL',environment);self.assertNotIn('GEMINI_API_KEY',environment)
+    def test_heavy_ocr_jobs_are_not_queued_when_the_local_slot_is_busy(self):
+        from platform_api.documents.ocr import _slot
+        self.assertTrue(_slot.acquire(blocking=False))
+        try:
+            with self.assertRaises(DocumentError) as caught:extract_ocr(b'%PDF-synthetic')
+            self.assertEqual(caught.exception.status,503)
+        finally:_slot.release()
     def test_oversized_raster_is_rejected_before_rendering(self):
         from pypdf import PdfWriter
         writer=PdfWriter();writer.add_blank_page(width=50000,height=50000);stream=io.BytesIO();writer.write(stream)

@@ -10,6 +10,14 @@ def engine_path():
 
 def available():return engine_path() is not None
 
+_slot=threading.BoundedSemaphore(1)
+
+def extract_ocr(data):
+    # One active OCR tree per API process; do not queue unbounded heavy raster jobs.
+    if not _slot.acquire(blocking=False):raise DocumentError(503,'Local OCR processor is busy; retry later')
+    try:return _extract_ocr(data)
+    finally:_slot.release()
+
 def kill_tree(process):
     try:
         parent=psutil.Process(process.pid)
@@ -19,7 +27,7 @@ def kill_tree(process):
         parent.kill()
     except psutil.NoSuchProcess:pass
 
-def extract_ocr(data):
+def _extract_ocr(data):
     engine=engine_path()
     if not engine:raise DocumentError(503,'Local OCR engine is unavailable; configure Tesseract with Arabic and English language data')
     if len(data)>MAX_PDF_BYTES or not data.startswith(b'%PDF-'):raise DocumentError(422,'A bounded PDF is required')

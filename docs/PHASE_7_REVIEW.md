@@ -16,6 +16,8 @@ Original upload limits remain 2 MiB/20 pages; an explicit OCR job is limited to 
 
 `pypdfium2` rasterization and Pillow are explicit runtime dependencies already pinned by the lock file. Tesseract is supplied by the operating-system package repository; its actual version is recorded with each derived document. See [Tesseract command-line documentation](https://tesseract-ocr.github.io/tessdoc/Command-Line-Usage.html) and [PDFium Python API](https://pypdfium2.readthedocs.io/en/stable/python_api.html).
 
+Only one OCR process tree runs per API process; concurrent heavy requests receive a retryable 503 rather than an unbounded local queue. Multiple API processes/replicas need deployment-level concurrency budgeting in addition to these per-process and database rate limits.
+
 ## Verification
 
 `python -m unittest discover -s tests -p test_phase_seven.py -v` exercises immutable versions, owner/tenant access, tampering, stale revisions, unavailable engines, low-confidence blocks, explicit comparison, reviewed cited assessment, TSV validation, pixel limits and process-tree timeout behavior. Local tests without Tesseract skip actual recognition; CI sets `REQUIRE_OCR=1`, installs the engine/languages and must recognize a raster-only synthetic English contract through the full OCR/review path on SQLite and PostgreSQL. This test is a defined fixture, not a broad OCR accuracy benchmark. Existing security, document, graph and Temporal regressions also remain required.
