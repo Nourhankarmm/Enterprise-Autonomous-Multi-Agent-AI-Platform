@@ -30,10 +30,12 @@ def run(data,engine):
                 width,height=page.get_size();scale=200/72
                 count=math.ceil(width*scale)*math.ceil(height*scale);pixels+=count
                 if count>8_000_000 or pixels>24_000_000:raise ValueError('OCR_PIXEL_LIMIT')
-                with page.render(scale=scale) as bitmap:
+                bitmap=page.render(scale=scale)
+                try:
                     image=bitmap.to_pil();source=Path(directory)/'page.png'
                     try:image.save(source)
                     finally:image.close()
+                finally:bitmap.close()
                 target=Path(directory)/'result'
                 subprocess.run([engine,str(source),str(target),'-l','ara+eng','--psm','6','tsv'],
                     stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,timeout=12,check=True)

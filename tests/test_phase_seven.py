@@ -71,6 +71,19 @@ class PhaseSevenTests(unittest.TestCase):
         self.assertEqual(r.status_code,200);order=next(x for x in r.json()['items'] if x['order_id']=='PO-A1')
         self.assertEqual(order['beyond_grace_days'],8)
         self.assertIn(doc['id'],json.dumps(order));self.assertNotIn(source['id'],json.dumps(order))
+        operation=phase3.PhaseThreeTests.run_operation(self)
+        self.assertIn(doc['id'],json.dumps(operation['result']))
+        self.assertIn('ocr',json.dumps(operation['result']))
+    def test_ocr_jobs_share_the_existing_pdf_processing_budget(self):
+        from fastapi.testclient import TestClient
+        source=self.source()
+        with patch.dict(os.environ,{'RATE_LIMIT_ENABLED':'1','UPLOAD_USER_LIMIT':'1'}),patch('platform_api.documents.ocr.extract_ocr',return_value=result()) as engine:
+            with TestClient(phase3.create_app(self.path,self.tokens,phase3.DemoPlanner())) as client:
+                url='/v1/documents/'+source['id']+'/ocr';body={'revision':source['revision'],'version':2}
+                self.assertEqual(client.post(url,headers=self.headers(),json=body).status_code,201)
+                response=client.post(url,headers=self.headers(),json=body)
+                self.assertEqual(response.status_code,429);self.assertIn('Retry-After',response.headers)
+                self.assertEqual(engine.call_count,1)
     def test_unavailable_engine_fails_safely_without_creating_a_version(self):
         source=self.source()
         with patch('platform_api.documents.ocr.engine_path',return_value=None):
@@ -93,6 +106,15 @@ class PhaseSevenTests(unittest.TestCase):
         writer=PdfWriter();writer.add_blank_page(width=50000,height=50000);stream=io.BytesIO();writer.write(stream)
         with patch('platform_api.documents.ocr_worker.subprocess.run',return_value=SimpleNamespace(stdout=b'test-engine\n')):
             with self.assertRaisesRegex(ValueError,'OCR_PIXEL_LIMIT'):run(stream.getvalue(),'synthetic-engine')
+    def test_actual_rasterizer_feeds_the_engine_and_closes_bitmap_resources(self):
+        def engine(command,**kwargs):
+            if '--version' in command:return SimpleNamespace(stdout=b'synthetic-engine\n')
+            self.assertTrue(Path(command[1]).read_bytes().startswith(b'\x89PNG'))
+            Path(command[2]).with_suffix('.tsv').write_text('level\tblock_num\tpar_num\tline_num\tconf\ttext\n5\t1\t1\t1\t99\tsynthetic\n')
+            return SimpleNamespace(returncode=0)
+        with patch('platform_api.documents.ocr_worker.subprocess.run',side_effect=engine):
+            parsed=run((phase3.PDFS/'scanned.pdf').read_bytes(),'synthetic-engine')
+        self.assertEqual(parsed['pages'],['synthetic'])
     def test_actual_engine_reads_raster_pdf(self):
         if not available():
             if os.getenv('REQUIRE_OCR')=='1':self.fail('CI requires a real Arabic/English OCR engine')
