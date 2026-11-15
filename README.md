@@ -1,8 +1,8 @@
 # Enterprise Autonomous Multi-Agent AI Platform
 
-Phase 0 planning/data and Phase 1 application foundation are implemented. Phase 2 now adds reviewed plans, a bounded LangGraph runtime and persisted task traces; real Gemini model acceptance is verified in `evals/reports/phase2-live-gemini.json`. Phase 1 uses a **local authentication stub**, not OIDC/SSO. Contract ingestion, Temporal, approvals and sending belong to later phases.
+Phase 0 planning/data and Phase 1 application foundation are implemented. Phase 2 now adds reviewed plans, a bounded LangGraph runtime and persisted task traces; real Gemini model acceptance is verified in `evals/reports/phase2-live-gemini.json`. Phase 1 uses a **local authentication stub**, not OIDC/SSO. Phase 3 adds reviewed PDF contract evidence and ACL-filtered lexical retrieval. Temporal, approvals and sending belong to later phases.
 
-See [Phase 2 review](docs/PHASE_2_REVIEW.md), [Phase 1 review](docs/PHASE_1_REVIEW.md), [roadmap](docs/ROADMAP.md), and [Phase 0 rules](docs/PHASE_0_SPEC.md).
+See [Phase 3 review](docs/PHASE_3_REVIEW.md), [Phase 2 review](docs/PHASE_2_REVIEW.md), [Phase 1 review](docs/PHASE_1_REVIEW.md), [roadmap](docs/ROADMAP.md), and [Phase 0 rules](docs/PHASE_0_SPEC.md).
 
 ## Local PowerShell setup
 
@@ -45,7 +45,7 @@ For an existing PostgreSQL server set `DATABASE_URL=postgresql+psycopg://USER:PA
 node --check web/app.js
 ```
 
-Expected: **58 unittest methods**, including 15 arithmetic subcases. To repeat Phase 1 acceptance against a dedicated, empty PostgreSQL test database:
+Expected: **87 unittest methods**, including 15 arithmetic subcases. To repeat Phase 1 acceptance against a dedicated, empty PostgreSQL test database:
 
 ```powershell
 $env:TEST_DATABASE_URL = 'postgresql+psycopg://USER:PASSWORD@127.0.0.1:5432/DEDICATED_TEST_DB'
@@ -53,7 +53,7 @@ $env:TEST_DATABASE_URL = 'postgresql+psycopg://USER:PASSWORD@127.0.0.1:5432/DEDI
 Remove-Item Env:TEST_DATABASE_URL
 ```
 
-This Phase 1 command runs nine methods, applies migrations twice, checks model/schema drift, seeds fixtures and writes test users/events. Repeat with `-p test_phase_two.py` for the 28 Phase 2 PostgreSQL methods. **Use a dedicated disposable database, never production.** The test database is retained for inspection. CI runs both SQLite and PostgreSQL 17 checks (including Phase 2), builds/starts the full Compose stack and verifies login, tenant isolation, audit/session persistence across API restart and logout. It cleans up its disposable stack afterward. GitHub Actions execution passed, including a fresh Compose boot and restart acceptance: [verified run](https://github.com/Nourhankarmm/Enterprise-Autonomous-Multi-Agent-AI-Platform/actions/runs/43552653640).
+This Phase 1 command runs nine methods, applies migrations twice, checks model/schema drift, seeds fixtures and writes test users/events. Repeat with `-p test_phase_two.py` for the 28 Phase 2 PostgreSQL methods. Use `-p test_phase_three.py` for the 29 document-evidence PostgreSQL methods. **Use a dedicated disposable database, never production.** The test database is retained for inspection. CI runs both SQLite and PostgreSQL 17 checks (including Phase 2), builds/starts the full Compose stack and verifies login, tenant isolation, audit/session persistence across API restart and logout. It cleans up its disposable stack afterward. GitHub Actions execution passed, including a fresh Compose boot and restart acceptance: [verified run](https://github.com/Nourhankarmm/Enterprise-Autonomous-Multi-Agent-AI-Platform/actions/runs/43552653640).
 
 ## API
 
@@ -106,8 +106,27 @@ Alternatively set server environment variables `PLANNER_PROVIDER=openai`, `OPENA
 
 Operations are scoped to their requesting user and company. Plans are hash/version-bound, require confirmation and permit at most two revisions. The read-only runner persists every task result and attempt. A short lease prevents concurrent execution; explicit resume reuses successful snapshots while honoring the original 30-second deadline and attempt budgets. This is synchronous API execution, not a Temporal/background workflow engine.
 
+## PDF contracts and evidence
+
+In the **العقود والأدلة** panel, upload a text PDF or choose a synthetic sample and click **رفع نسخة تجريبية خاصة بي**. New files are private and do not replace contract sources automatically. Inspect candidate clauses and their source pages, then click **راجعت النص وأعتمده مصدرًا للتحليل** to activate the reviewed source. Scope includes the supplier, optional order IDs, document version and file checksum. Sharing is explicit, owner-managed and limited to active procurement users from the same company.
+
+Create a new operation after publication. Findings then cite exact PDF pages/quotes instead of assuming mock terms. A date conflict between ERP and the reviewed PDF blocks contractual risk and leaves supported factual lateness visible. Missing/denied/unsupported evidence is unknown, never zero. Saved results and page/download/search routes recheck document ACLs; revoking a reader also blocks their old operation results containing that file.
+
+Supported extraction examples: `Grace period: 5 calendar days.`, `No grace period.`, `Delivery due date: 2026-11-01`, and their explicit Arabic labels. Text PDFs outside these controlled forms need clarification rather than automatic legal interpretation. Image-only/empty-text pages require OCR, which is not included. Limits: 2 MiB/file, 20 pages, bounded text/time/memory. Search uses local lexical BM25, not embeddings. PDF text stays on the local server; the LLM receives only the planning goal/instructions/schema.
+
+API additions:
+
+- `POST /v1/documents`: multipart `file` (application/pdf) and `metadata` (JSON string with `title`, `supplier_id`, `contract_ref`, `version`, optional `order_ids`, `effective_from`, `effective_to`).
+- `GET /v1/documents`, `/{id}`, `/{id}/pages/{page}`, `/{id}/file`: permitted documents, exact pages and original PDF attachment.
+- `GET /v1/documents/search?q=Grace&limit=10`: ACL-filtered, page-cited passage retrieval.
+- `POST /v1/documents/{id}/review`: owner confirms `revision`, `checksum`, `extraction_hash`; publishes only unambiguous calendar-day clauses.
+- `PUT /v1/documents/{id}/acl`: owner sends current `revision` and exact `readers` user IDs. `GET /v1/document-readers` provides eligible same-company users.
+- `GET /v1/document-samples/{sample}`: authenticated synthetic fixture download; samples include `supplier-s1`, `supplier-s3`, `conflicting`, `business-days`, `scanned`.
+
+SQLite startup applies additive migrations, including contract-family ownership preservation. PostgreSQL still requires explicit `alembic upgrade head` before API startup. The current migrations are 0001–0004. See the Phase 3 review for detailed validation and remaining limits.
+
 ## Limits
 
-Synthetic local demonstration only. Local auth has no enterprise SSO, MFA, password recovery, brute-force rate limiting or identity lifecycle integration. Use loopback for the demo; remote deployment requires HTTPS and identity hardening. Audit records are durable, not tamper-proof. Composite foreign keys and application query scoping are implemented; PostgreSQL RLS is not. The UI is a static Arabic shell served by FastAPI; Next.js is deferred until the operations UI phase. There is no PDF retrieval, real ERP write, financial action, email sending or approval engine.
+Synthetic local demonstration only. Local auth has no enterprise SSO, MFA, password recovery, brute-force rate limiting or identity lifecycle integration. Use loopback for the demo; remote deployment requires HTTPS and identity hardening. Audit records are durable, not tamper-proof. Composite foreign keys and application query scoping are implemented; PostgreSQL RLS is not. The UI is a static Arabic shell served by FastAPI; Next.js is deferred until the operations UI phase. There is no OCR, semantic-vector retrieval, general legal-language extraction, real ERP write, financial action, email sending or approval engine. PDF evidence supports explicit clauses with human review.
 
 Phase 1 image builds, fresh Compose startup, HTTP acceptance and cleanup passed on GitHub Actions. Phase 2 extends these checks to the reviewed LangGraph pipeline; see the branch/PR checks and Phase 2 review for current evidence. Historical Phase 1 run: https://github.com/Nourhankarmm/Enterprise-Autonomous-Multi-Agent-AI-Platform/actions/runs/43552653640

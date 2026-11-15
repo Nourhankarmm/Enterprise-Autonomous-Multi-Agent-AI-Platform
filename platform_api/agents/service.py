@@ -13,6 +13,8 @@ from langsmith import tracing_context
 from .schemas import Plan, PlanRejected, validate_proposal, plan_hash
 from .planner import configured_planner
 from .gateway import ToolGateway, TransientToolError
+from ..documents.service import DocumentService
+from ..documents.schemas import DocumentError
 from ..database import operations, agent_tasks, operation_events, audit_events, users
 
 class OperationError(Exception):
@@ -52,6 +54,7 @@ class OperationService:
             op=self._get(db,actor,operation_id)
             tasks=[dict(r) for r in db.execute(select(agent_tasks).where(
                 agent_tasks.c.tenant_id==actor.tenant_id,agent_tasks.c.operation_id==operation_id)).mappings()]
+        DocumentService(self.engine).assert_snapshot_access(actor,{'tasks':tasks,'result':op['result']})
         for key in ('lease_token','lease_until','deadline_at'):op.pop(key,None)
         op['tasks']=tasks
         return op
@@ -65,6 +68,7 @@ class OperationService:
             return {'items':[dict(row) for row in rows]}
 
     def events(self,actor,operation_id,after=0,limit=100):
+        self.get(actor,operation_id)
         with self.engine.connect() as db:
             self._get(db,actor,operation_id)
             rows=[dict(r) for r in db.execute(select(operation_events).where(
@@ -155,6 +159,7 @@ class OperationService:
             if changed.rowcount!=1:raise OperationError(409,'Operation already claimed or changed')
             self.event(db,actor,operation_id,'operation.resumed' if resume else 'plan.confirmed',details={'version':plan.version,'plan_hash':op['plan_hash']})
         gateway=self.gateway_factory(self.path,actor.tenant_id)
+        gateway.actor=actor
         graph=StateGraph(ExecutionState)
         for task in plan.proposal.tasks:
             def run_task(state,current=task):
@@ -172,13 +177,15 @@ class OperationService:
                 self._guard(db,actor,operation_id,lease)
                 result=db.execute(select(agent_tasks.c.output).where(agent_tasks.c.tenant_id==actor.tenant_id,
                     agent_tasks.c.operation_id==operation_id,agent_tasks.c.task_id==report)).scalar_one()
-                final='WAITING_DOCUMENT' if result['unresolved_order_ids'] else 'COMPLETED'
+                DocumentService(self.engine).assert_snapshot_access(actor,result,current=True)
+                final='WAITING_CLARIFICATION' if result.get('conflicting_order_ids') else 'WAITING_DOCUMENT' if result['unresolved_order_ids'] else 'COMPLETED'
                 db.execute(update(operations).where(*self.scope(actor,operation_id),operations.c.lease_token==lease)
                     .values(state=final,result=result,lease_token=None,lease_until=None,updated_at=now_iso()))
                 self.event(db,actor,operation_id,'operation.finished',details={'state':final})
         except RunCancelled:self._finish(actor,operation_id,lease,'CANCELLED',None)
         except RunExpired:self._finish(actor,operation_id,lease,'FAILED','TIME_BUDGET_EXCEEDED')
         except LeaseLost:pass # Another runner/cancellation now owns the state; never overwrite it.
+        except DocumentError:self._finish(actor,operation_id,lease,'FAILED','EVIDENCE_ACCESS_OR_VERSION_CHANGED')
         except OperationError:self._finish(actor,operation_id,lease,'FAILED','AUTHORIZATION_REVOKED')
         except PlanRejected:self._finish(actor,operation_id,lease,'FAILED','PLAN_OR_VERIFICATION_REJECTED')
         except Exception:self._finish(actor,operation_id,lease,'FAILED','TASK_EXECUTION_FAILED')
@@ -206,6 +213,7 @@ class OperationService:
             with self.engine.begin() as db:
                 self._guard(db,actor,operation_id,lease)
                 rows={r['task_id']:dict(r) for r in db.execute(select(agent_tasks).where(*conditions)).mappings()}
+                DocumentService(self.engine).assert_snapshot_access(actor,[r['output'] for r in rows.values() if r['state']=='SUCCEEDED'],current=True)
                 row=rows[task.task_id]
                 if row['state']=='SUCCEEDED':return
                 if any(rows[dep]['state']!='SUCCEEDED' for dep in task.depends_on):raise PlanRejected('Dependency unfinished')

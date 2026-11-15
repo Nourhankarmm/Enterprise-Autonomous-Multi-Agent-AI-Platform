@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import insert, select, delete
 from .domain import assess_order
 from .store import MockERP, initialize
-from .database import engine_for, audit_events, sessions
+from .database import engine_for, audit_events, sessions, document_families
 from .auth import login, resolve_session, token_hash
 
 class Identity(BaseModel):
@@ -46,10 +46,11 @@ def create_app(db_path: str | None = None, tokens: dict[str, Identity] | None = 
             initialize(path)
         with engine.connect() as db:
             db.execute(select(audit_events.c.id).limit(1))
+            db.execute(select(document_families.c.tenant_id).limit(1))
         yield
         engine.dispose()
 
-    app = FastAPI(title='Enterprise AI Operations - Phase 2', lifespan=lifespan)
+    app = FastAPI(title='Enterprise AI Operations - Phase 3', lifespan=lifespan)
     bearer = HTTPBearer(auto_error=False)
 
     @app.middleware('http')
@@ -90,6 +91,7 @@ def create_app(db_path: str | None = None, tokens: dict[str, Identity] | None = 
     def health():
         with engine.connect() as db:
             db.execute(select(audit_events.c.id).limit(1))
+            db.execute(select(document_families.c.tenant_id).limit(1))
         return {'status': 'ok', 'mode': 'synthetic', 'database': engine.dialect.name, 'auth': 'local-stub'}
 
     @app.post('/v1/auth/login')
@@ -131,7 +133,9 @@ def create_app(db_path: str | None = None, tokens: dict[str, Identity] | None = 
     @app.get('/v1/procurement/assessment')
     def assessment(as_of: date, actor: Identity = Depends(reader)):
         erp = MockERP(path, actor.tenant_id)
-        items = [assess_order(order, erp.contract(order['supplier_id']), as_of) for order in erp.orders()]
+        from .documents.intelligence import assess_with_evidence
+        items = [assess_with_evidence(order,app.state.documents.resolve(actor,order['supplier_id'],
+            order['id'],as_of,erp.contract(order['supplier_id'])),as_of) for order in erp.orders()]
         record(actor, 'assessment.read', 'procurement', {'as_of': as_of.isoformat()})
         return {'items': items}
 
@@ -146,6 +150,8 @@ def create_app(db_path: str | None = None, tokens: dict[str, Identity] | None = 
 
     from .agents.routes import register_agent_routes
     register_agent_routes(app,engine,path,reader,planner)
+    from .documents.routes import register_document_routes
+    register_document_routes(app,engine,reader)
 
     web = Path(__file__).resolve().parents[1] / 'web'
     app.mount('/assets', StaticFiles(directory=web), name='assets')

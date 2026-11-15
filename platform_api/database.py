@@ -1,7 +1,7 @@
 """Relational schema with composite tenant ownership constraints."""
 from pathlib import Path
 from sqlalchemy import (MetaData, Table, Column, String, Integer, Float, Boolean,
-                        JSON, ForeignKeyConstraint, CheckConstraint, create_engine, event)
+                        JSON, Text, LargeBinary, UniqueConstraint, ForeignKeyConstraint, CheckConstraint, create_engine, event)
 
 metadata = MetaData()
 tenants = Table('tenants', metadata, Column('id', String, primary_key=True))
@@ -64,6 +64,46 @@ operation_events = Table('operation_events', metadata,
     Column('event_type', String, nullable=False), Column('occurred_at', String, nullable=False),
     Column('details', JSON, nullable=False),
     ForeignKeyConstraint(['tenant_id','operation_id'], ['operations.tenant_id','operations.id']))
+
+
+document_families = Table('document_families',metadata,
+    Column('tenant_id',String,primary_key=True),Column('contract_ref',String,primary_key=True),
+    Column('owner_id',String,nullable=False),Column('supplier_id',String,nullable=False),
+    UniqueConstraint('tenant_id','contract_ref','owner_id','supplier_id',name='document_family_owner_unique'),
+    ForeignKeyConstraint(['tenant_id','supplier_id'],['suppliers.tenant_id','suppliers.id']))
+documents = Table('documents', metadata,
+    Column('tenant_id',String,primary_key=True),Column('id',String,primary_key=True),
+    Column('owner_id',String,nullable=False),Column('supplier_id',String,nullable=False),
+    Column('contract_ref',String,nullable=False),Column('version',Integer,nullable=False),
+    Column('title',String,nullable=False),Column('checksum',String,nullable=False),
+    Column('content',LargeBinary,nullable=False),Column('byte_size',Integer,nullable=False),
+    Column('page_count',Integer,nullable=False),Column('state',String,nullable=False),
+    Column('revision',Integer,nullable=False),Column('extraction',JSON,nullable=False),
+    Column('approved_terms',JSON),Column('order_ids',JSON,nullable=False),
+    Column('effective_from',String),Column('effective_to',String),Column('created_at',String,nullable=False),
+    UniqueConstraint('tenant_id','contract_ref','version',name='document_version_unique'),
+    ForeignKeyConstraint(['tenant_id','contract_ref','owner_id','supplier_id'],['document_families.tenant_id','document_families.contract_ref','document_families.owner_id','document_families.supplier_id']),
+    ForeignKeyConstraint(['tenant_id','supplier_id'],['suppliers.tenant_id','suppliers.id']),
+    CheckConstraint('version >= 1 AND revision >= 1',name='valid_document_version'))
+document_acl = Table('document_acl',metadata,
+    Column('tenant_id',String,primary_key=True),Column('document_id',String,primary_key=True),
+    Column('subject_id',String,primary_key=True),
+    ForeignKeyConstraint(['tenant_id','document_id'],['documents.tenant_id','documents.id']))
+document_pages = Table('document_pages',metadata,
+    Column('tenant_id',String,primary_key=True),Column('document_id',String,primary_key=True),
+    Column('page',Integer,primary_key=True),Column('text',Text,nullable=False),Column('text_hash',String,nullable=False),
+    ForeignKeyConstraint(['tenant_id','document_id'],['documents.tenant_id','documents.id']))
+document_chunks = Table('document_chunks',metadata,
+    Column('tenant_id',String,primary_key=True),Column('document_id',String,primary_key=True),
+    Column('chunk_id',String,primary_key=True),Column('page',Integer,nullable=False),
+    Column('start_offset',Integer,nullable=False),Column('end_offset',Integer,nullable=False),
+    Column('text',Text,nullable=False),Column('text_hash',String,nullable=False),
+    ForeignKeyConstraint(['tenant_id','document_id','page'],['document_pages.tenant_id','document_pages.document_id','document_pages.page']))
+contract_sources = Table('contract_sources',metadata,
+    Column('tenant_id',String,primary_key=True),Column('supplier_id',String,primary_key=True),
+    Column('document_id',String,nullable=False),Column('owner_id',String,nullable=False),
+    ForeignKeyConstraint(['tenant_id','supplier_id'],['suppliers.tenant_id','suppliers.id']),
+    ForeignKeyConstraint(['tenant_id','document_id'],['documents.tenant_id','documents.id']))
 
 def database_url(path):
     if '://' in path:

@@ -7,6 +7,7 @@ import os
 import secrets
 import subprocess
 import time
+from pathlib import Path
 import urllib.error
 import urllib.request
 
@@ -104,12 +105,39 @@ finally:
     assert finished['result']['unresolved_order_ids']==['PO-A3']
     events=request('/v1/operations/'+operation['id']+'/events',tokens['alpha'])['items']
     assert sum(e['event_type']=='task.succeeded' for e in events)==5
+    # Ingest a real PDF with multipart, inspect exact page citations, then publish explicitly.
+    import uuid
+    pdf=(Path(__file__).resolve().parents[1]/'evals/datasets/contracts/supplier-s1.pdf').read_bytes()
+    boundary='fixture-'+uuid.uuid4().hex
+    metadata=json.dumps({'title':'CI PDF contract','supplier_id':'S1','contract_ref':'CI-'+suffix,'version':1})
+    multipart=(f'--{boundary}\r\nContent-Disposition: form-data; name="metadata"\r\n\r\n{metadata}\r\n'
+        f'--{boundary}\r\nContent-Disposition: form-data; name="file"; filename="contract.pdf"\r\nContent-Type: application/pdf\r\n\r\n').encode()+pdf+f'\r\n--{boundary}--\r\n'.encode()
+    upload=urllib.request.Request(BASE_URL+'/v1/documents',data=multipart,headers={
+        'Authorization':'Bearer '+tokens['alpha'],'Content-Type':'multipart/form-data; boundary='+boundary})
+    with urllib.request.urlopen(upload,timeout=20) as response:
+        assert response.status==201
+        document=json.load(response)
+    assert document['state']=='EXTRACTED' and document['page_count']==2
+    request('/v1/documents/'+document['id']+'/pages/2',tokens['beta'],expected=404)
+    request('/v1/documents/'+document['id']+'/review',tokens['alpha'],payload={
+        'revision':document['revision'],'checksum':document['checksum'],
+        'extraction_hash':document['extraction']['extraction_hash']})
+    evidence=request('/v1/procurement/assessment?as_of=2026-11-14',tokens['alpha'])['items']
+    cited=next(f for f in evidence if f['order_id']=='PO-A1')
+    assert cited['source_mode']=='reviewed_pdf' and cited['beyond_grace_days']==8
+    assert cited['evidence'][1]['document_id']==document['id'] and cited['evidence'][1]['page']==2
+    page=request(cited['evidence'][1]['location'],tokens['alpha'])
+    assert page['text'][cited['evidence'][1]['start']:cited['evidence'][1]['end']]==cited['evidence'][1]['quote']
+    hits=request('/v1/documents/search?q=Grace',tokens['alpha'])['items']
+    assert hits and hits[0]['document_id']==document['id']
     before = request('/v1/audit-events', tokens['alpha'])['items']
     event_ids = {event['id'] for event in before}
     assert event_ids and {event['tenant_id'] for event in before} == {'alpha'}
     compose('restart', 'api')
     wait_ready()
     assert request('/v1/me', tokens['alpha'])['tenant_id'] == 'alpha'
+    assert request('/v1/documents/'+document['id'],tokens['alpha'])['state']=='READY'
+    assert request('/v1/documents/'+document['id']+'/pages/2',tokens['alpha'])['checksum']==document['checksum']
     restored=request('/v1/operations/'+operation['id'],tokens['alpha'])
     assert restored['state']=='WAITING_DOCUMENT' and restored['result']==finished['result']
     request(confirm_path,tokens['alpha'],payload={'version':operation['plan_version'],'plan_hash':operation['plan_hash']},expected=409)
@@ -119,7 +147,7 @@ finally:
     for token in tokens.values():
         request('/v1/auth/logout', token, method='POST', expected=204)
         request('/v1/me', token, expected=401)
-    print('Compose acceptance passed: fresh PostgreSQL bootstrap, login, isolation, assessment, durable audit/session, reviewed LangGraph execution/results, logout.')
+    print('Compose acceptance passed: fresh PostgreSQL bootstrap, login, isolation, assessment, durable audit/session, reviewed LangGraph execution/results, PDF ingestion/citations/ACL, logout.')
 
 
 if __name__ == '__main__':
