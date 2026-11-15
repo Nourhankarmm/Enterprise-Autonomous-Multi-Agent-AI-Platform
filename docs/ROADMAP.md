@@ -35,7 +35,7 @@ Solo developer; part-time or full-time pace changes duration. Estimate: **21Ã¢â‚
 - [x] M0: Synthetic dataset and golden case specifications (see PHASE_0_REVIEW.md; future E2E behavior not yet implemented)
 - [x] M1: Tenant-scoped API and mock ERP with local auth stub (see PHASE_1_REVIEW.md; Docker Compose and GitHub CI verified)
 - [x] M2: Validated agent plans and execution traces (real Gemini acceptance verified; see PHASE_2_REVIEW.md)
-- [ ] M3: Citation-backed procurement analysis
+- [x] M3: Citation-backed procurement analysis (reviewed PDF clauses, ACL-filtered lexical retrieval, real Gemini acceptance and PostgreSQL/Compose CI verified; see PHASE_3_REVIEW.md)
 - [ ] M4: Durable approvals and safe side effects
 - [ ] M5: Usable operations dashboard
 - [ ] M6: Published evaluation report and reproducible demo
