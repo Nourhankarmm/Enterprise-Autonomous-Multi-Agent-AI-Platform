@@ -87,7 +87,7 @@ jobs:
           docker compose exec -T api python -c "from pathlib import Path; import sys; Path('/tmp/test_temporal_integration.py').write_bytes(sys.stdin.buffer.read())" < tests/test_temporal_integration.py
           docker compose exec -T api python -c "from pathlib import Path; import sys; Path('/tmp/crash_worker.py').write_bytes(sys.stdin.buffer.read())" < tests/crash_worker.py
           docker compose exec -T -e TEST_TEMPORAL_ADDRESS=temporal:7233 -e TEMPORAL_PROOF_OUTPUT=/tmp/temporal-recovery.json -e EVALUATION_SOURCE_SHA="$GITHUB_SHA" api python -m unittest discover -s /tmp -p test_temporal_integration.py -v
-          docker compose cp api:/tmp/temporal-recovery.json .data/phase6-temporal-recovery.json
+          docker compose exec -T api python -c "from pathlib import Path; import sys; sys.stdout.buffer.write(Path('/tmp/temporal-recovery.json').read_bytes())" > .data/phase6-temporal-recovery.json
       - name: Verify disposable backup restore
         run: python scripts/verify_compose_restore.py
       - name: Publish evaluation artifacts
