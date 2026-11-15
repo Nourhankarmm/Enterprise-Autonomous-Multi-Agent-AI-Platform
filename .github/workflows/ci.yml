@@ -88,6 +88,8 @@ jobs:
         run: python scripts/compose_smoke.py
       - name: Verify durable approvals and killed-worker recovery
         run: python scripts/durable_smoke.py
+      - name: Verify OCR in read-only application container
+        run: python scripts/ocr_smoke.py
       - name: Replay real Temporal history
         run: |
           docker compose exec -T api python -c "from pathlib import Path; import sys; Path('/tmp/test_temporal_integration.py').write_bytes(sys.stdin.buffer.read())" < tests/test_temporal_integration.py
@@ -101,7 +103,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: phase6-evaluation-${{ github.sha }}
-          path: .data/phase6-*.json
+          path: |
+            .data/phase6-*.json
+            .data/phase7-*.json
           if-no-files-found: error
           include-hidden-files: true
       - name: Collect container logs
