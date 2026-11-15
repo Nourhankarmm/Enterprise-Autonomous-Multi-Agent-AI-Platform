@@ -2,7 +2,7 @@
 import json
 from pathlib import Path
 from sqlalchemy import select, insert, inspect
-from .database import engine_for, metadata, tenants, suppliers, projects, orders, contracts
+from .database import engine_for, database_url, metadata, tenants, suppliers, projects, orders, contracts
 
 FIXTURE = Path(__file__).resolve().parents[1] / 'evals/datasets/procurement.json'
 
@@ -26,7 +26,24 @@ def initialize(path):
             inspector = inspect(engine)
             if inspector.has_table('purchase_orders') and 'payload' in {c['name'] for c in inspector.get_columns('purchase_orders')}:
                 raise RuntimeError('Legacy SQLite database: use a new DATABASE_PATH; old data is preserved.')
-            metadata.create_all(engine)
+            from alembic import command
+            from alembic.config import Config
+            config=Config(str(FIXTURE.parents[2] / 'alembic.ini'))
+            config.attributes['database_url']=database_url(path)
+            if inspector.has_table('purchase_orders') and not inspector.has_table('alembic_version'):
+                # Adopt only the exact known Phase 1 create_all bootstrap schema.
+                from alembic.autogenerate import compare_metadata
+                from alembic.migration import MigrationContext
+                from sqlalchemy import MetaData
+                baseline=MetaData()
+                for name in ('tenants','suppliers','projects','purchase_orders','contracts','users','sessions','audit_events'):
+                    metadata.tables[name].to_metadata(baseline)
+                with engine.connect() as connection:
+                    differences=compare_metadata(MigrationContext.configure(connection),baseline)
+                if differences:
+                    raise RuntimeError('Unversioned database differs from Phase 1 schema; manual migration required')
+                command.stamp(config,'0001')
+            command.upgrade(config,'head')
         seed(engine)
     finally:
         engine.dispose()

@@ -1,0 +1,14 @@
+{
+  "verified_at": "2026-11-15T01:15:24.363115+00:00",
+  "provider": "gemini",
+  "model": "gemini-3.1-flash-lite",
+  "operation_id": "2e18adda-524d-4b46-b7ec-f20bb86f2bba",
+  "state": "COMPLETED",
+  "analysis_date": "2026-11-14",
+  "findings_count": 1,
+  "usage": {
+    "input_tokens": 358,
+    "output_tokens": 416
+  },
+  "supplier_filter_verified": true
+}

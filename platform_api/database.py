@@ -40,6 +40,31 @@ audit_events = Table('audit_events', metadata,
     Column('details', JSON, nullable=False),
     ForeignKeyConstraint(['tenant_id'], ['tenants.id']))
 
+
+operations = Table('operations', metadata,
+    Column('tenant_id', String, primary_key=True), Column('id', String, primary_key=True),
+    Column('requester_id', String, nullable=False), Column('goal', String, nullable=False),
+    Column('state', String, nullable=False), Column('plan_version', Integer, nullable=False),
+    Column('plan', JSON, nullable=False), Column('plan_hash', String, nullable=False),
+    Column('planner_provider', String, nullable=False), Column('planner_model', String),
+    Column('planner_usage', JSON, nullable=False), Column('replans', Integer, nullable=False),
+    Column('result', JSON), Column('error_code', String), Column('lease_token', String),
+    Column('lease_until', Float), Column('deadline_at', Float),
+    Column('created_at', String, nullable=False), Column('updated_at', String, nullable=False),
+    ForeignKeyConstraint(['tenant_id'], ['tenants.id']))
+agent_tasks = Table('agent_tasks', metadata,
+    Column('tenant_id', String, primary_key=True), Column('operation_id', String, primary_key=True),
+    Column('task_id', String, primary_key=True), Column('capability', String, nullable=False),
+    Column('state', String, nullable=False), Column('attempts', Integer, nullable=False),
+    Column('output', JSON), Column('error_code', String),
+    ForeignKeyConstraint(['tenant_id','operation_id'], ['operations.tenant_id','operations.id']))
+operation_events = Table('operation_events', metadata,
+    Column('id', Integer, primary_key=True, autoincrement=True), Column('tenant_id', String, nullable=False),
+    Column('operation_id', String, nullable=False), Column('task_id', String),
+    Column('event_type', String, nullable=False), Column('occurred_at', String, nullable=False),
+    Column('details', JSON, nullable=False),
+    ForeignKeyConstraint(['tenant_id','operation_id'], ['operations.tenant_id','operations.id']))
+
 def database_url(path):
     if '://' in path:
         return path
@@ -47,7 +72,9 @@ def database_url(path):
     return 'sqlite:///' + str(Path(path).resolve()).replace('\\', '/')
 
 def engine_for(path):
-    engine = create_engine(database_url(path), pool_pre_ping=True)
+    url = database_url(path)
+    args = {'connect_timeout': 5, 'options': '-c statement_timeout=5000'} if url.startswith('postgresql') else {'timeout': 5}
+    engine = create_engine(url, pool_pre_ping=True, connect_args=args)
     if engine.dialect.name == 'sqlite':
         @event.listens_for(engine, 'connect')
         def foreign_keys(connection, _):

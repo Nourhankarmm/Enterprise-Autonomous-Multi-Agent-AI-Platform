@@ -4,7 +4,7 @@ from sqlalchemy import create_engine, pool
 from platform_api.database import metadata
 
 config = context.config
-url = os.getenv('DATABASE_URL') or config.get_main_option('sqlalchemy.url')
+url = config.attributes.get('database_url') or os.getenv('DATABASE_URL') or config.get_main_option('sqlalchemy.url')
 if context.is_offline_mode():
     context.configure(url=url, target_metadata=metadata, literal_binds=True)
     with context.begin_transaction():

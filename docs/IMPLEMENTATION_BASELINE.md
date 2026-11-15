@@ -11,3 +11,11 @@ Business rules remain deterministic: explicit ISO analysis date; calendar-day la
 Pending: agents/planning/tools, PDF ingestion and ACL retrieval, amendments/conflict handling, project exposure analysis, Temporal lifecycle, independent approvals, action hashes, idempotency/reconciliation, outbound sending, full operations UI, production identity/security/deployment hardening.
 
 The 20 business scenarios remain future behavior specifications, not 20 passing E2E workflows. Foundation verification comprises 23 unittest methods including 15 arithmetic subcases, plus nine Phase 1 methods on real PostgreSQL. Docker Compose startup and the complete CI workflow passed on GitHub Actions: [run evidence](https://github.com/Nourhankarmm/Enterprise-Autonomous-Multi-Agent-AI-Platform/actions/runs/43552653640). Historical Phase 0 review statements about Phase 1 being incomplete describe the earlier baseline and are superseded by the Phase 1 review.
+
+
+## Phase 2 implementation update
+
+Reviewed typed plans, optional OpenAI structured planner, explicitly labelled offline demo, allowlisted LangGraph DAG execution, persisted operation/task/event state, bounded retries/time/revisions, owner isolation, cancellation and explicit short-interruption read-only resume are implemented. See [Phase 2 review](PHASE_2_REVIEW.md). The suite now has 50 methods, including 27 Phase 2 methods. Earlier pending-agent statements above describe the Phase 1 baseline. Live OpenAI acceptance remains pending local key/model configuration; offline checks are not live-model verification.
+
+
+Gemini follow-up (15 November 2026): free-tier adapter and hidden-key launcher implemented; a real supplier-scoped Gemini plan passed review, validation and LangGraph execution with expected PO-A1 results. Current suite has 58 methods. Live Gemini proof is in `evals/reports/phase2-live-gemini.json`; M2 is now checked in the roadmap. OpenAI live verification remains unclaimed.

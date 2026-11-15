@@ -17,19 +17,24 @@ def compose(*args, **kwargs):
     return subprocess.run(['docker', 'compose', *args], check=True, timeout=120, **kwargs)
 
 
-def request(path, token=None, payload=None, method=None, expected=200, extra_headers=None):
+def request(path, token=None, payload=None, method=None, expected=200, extra_headers=None, timeout=10):
     headers = {'Content-Type': 'application/json', **(extra_headers or {})}
     if token:
         headers['Authorization'] = 'Bearer ' + token
     data = json.dumps(payload).encode() if payload is not None else None
     req = urllib.request.Request(BASE_URL + path, data=data, headers=headers, method=method)
     try:
-        response = urllib.request.urlopen(req, timeout=10)
+        response = urllib.request.urlopen(req, timeout=timeout)
     except urllib.error.HTTPError as error:
         response = error
     with response:
         if response.status != expected:
-            raise AssertionError(f'{method or "GET"} {path}: expected {expected}, got {response.status}')
+            raw=response.read()
+            try:detail=json.loads(raw).get('detail','')
+            except (ValueError,AttributeError):detail=''
+            suffix=': '+detail[:300] if isinstance(detail,str) else ''
+            actual_method=method or ('POST' if payload is not None else 'GET')
+            raise AssertionError(f'{actual_method} {path}: expected {expected}, got {response.status}{suffix}')
         raw = response.read()
         if not raw:
             return None
@@ -86,18 +91,35 @@ finally:
     request('/v1/me', 'forged-session', expected=401)
     results = request('/v1/procurement/assessment?as_of=2026-11-14', tokens['alpha'])['items']
     assert {r['order_id']:r['risk'] for r in results} == {'PO-A1':'HIGH','PO-A2':'LOW','PO-A3':None}
+    operation=request('/v1/operations',tokens['alpha'],payload={
+        'goal':'حلل تأخير طلبات الشراء المفتوحة','as_of':'2026-11-14'},expected=201)
+    assert operation['state']=='PLANNED' and all(t['attempts']==0 for t in operation['tasks'])
+    confirm_path='/v1/operations/'+operation['id']+'/confirm'
+    request(confirm_path,tokens['alpha'],payload={'version':99,'plan_hash':operation['plan_hash']},expected=409)
+    request('/v1/operations/'+operation['id']+'/events',tokens['beta'],expected=404)
+    finished=request(confirm_path,tokens['alpha'],payload={
+        'version':operation['plan_version'],'plan_hash':operation['plan_hash']})
+    assert finished['state']=='WAITING_DOCUMENT'
+    assert all(t['state']=='SUCCEEDED' and t['attempts']==1 for t in finished['tasks'])
+    assert finished['result']['unresolved_order_ids']==['PO-A3']
+    events=request('/v1/operations/'+operation['id']+'/events',tokens['alpha'])['items']
+    assert sum(e['event_type']=='task.succeeded' for e in events)==5
     before = request('/v1/audit-events', tokens['alpha'])['items']
     event_ids = {event['id'] for event in before}
     assert event_ids and {event['tenant_id'] for event in before} == {'alpha'}
     compose('restart', 'api')
     wait_ready()
     assert request('/v1/me', tokens['alpha'])['tenant_id'] == 'alpha'
+    restored=request('/v1/operations/'+operation['id'],tokens['alpha'])
+    assert restored['state']=='WAITING_DOCUMENT' and restored['result']==finished['result']
+    request(confirm_path,tokens['alpha'],payload={'version':operation['plan_version'],'plan_hash':operation['plan_hash']},expected=409)
+
     after = request('/v1/audit-events', tokens['alpha'])['items']
     assert event_ids <= {event['id'] for event in after}
     for token in tokens.values():
         request('/v1/auth/logout', token, method='POST', expected=204)
         request('/v1/me', token, expected=401)
-    print('Compose acceptance passed: fresh PostgreSQL bootstrap, login, isolation, assessment, durable audit/session, logout.')
+    print('Compose acceptance passed: fresh PostgreSQL bootstrap, login, isolation, assessment, durable audit/session, reviewed LangGraph execution/results, logout.')
 
 
 if __name__ == '__main__':
