@@ -7,7 +7,7 @@ from sqlalchemy.exc import IntegrityError
 from ..database import (document_families,documents,document_acl,document_pages,document_chunks,contract_sources,
                         suppliers,orders,users,audit_events)
 from ..agents.schemas import canonical_hash
-from .schemas import DocumentError
+from .schemas import DocumentError,DocumentInput
 from .extract import extract_pages
 from .terms import extract_terms,chunks_for_page,text_hash
 
@@ -56,7 +56,7 @@ class DocumentService:
                 users.c.tenant_id==actor.tenant_id,users.c.active.is_(True),users.c.role.in_(['manager','analyst','approver']),
                 users.c.id!=actor.subject).limit(100)).mappings()]}
 
-    def upload(self,actor,metadata,data):
+    def upload(self,actor,metadata,data,*,ocr_result=None):
         with self.engine.connect() as db:
             if not db.execute(select(suppliers.c.id).where(suppliers.c.tenant_id==actor.tenant_id,
                     suppliers.c.id==metadata.supplier_id)).first():raise DocumentError(422,'Supplier must belong to your company')
@@ -69,7 +69,8 @@ class DocumentService:
                 raise DocumentError(404,'Contract reference is unavailable')
             if db.execute(select(func.count()).select_from(documents).where(documents.c.tenant_id==actor.tenant_id)).scalar_one()>=100:
                 raise DocumentError(409,'Demo company document limit reached')
-        pages=extract_pages(data);extraction=extract_terms(pages,metadata.supplier_id)
+        pages=ocr_result['pages'] if ocr_result else extract_pages(data)
+        extraction=extract_terms(pages,metadata.supplier_id,ocr_result['ocr'] if ocr_result else None)
         doc_id=str(uuid.uuid4());checksum=hashlib.sha256(data).hexdigest()
         try:
             with self.engine.begin() as db:
@@ -92,6 +93,27 @@ class DocumentService:
         except IntegrityError:raise DocumentError(409,'Document version already exists or metadata changed') from None
         return self.get(actor,doc_id)
 
+    def ocr(self,actor,doc_id,body):
+        from .ocr import extract_ocr
+        with self.engine.connect() as db:
+            source=self._row(db,actor,doc_id,owner=True,content=True)
+            if source['revision']!=body.revision:raise DocumentError(409,'Document revision changed')
+            if source['state']!='NEEDS_OCR':raise DocumentError(409,'OCR requires an original document awaiting OCR')
+            if body.version<=source['version']:raise DocumentError(422,'OCR must create a newer document version')
+            if hashlib.sha256(source['content']).hexdigest()!=source['checksum']:raise DocumentError(409,'Original PDF integrity check failed')
+        result=extract_ocr(source['content'])
+        result['ocr'].update(source_document_id=doc_id,source_checksum=source['checksum'])
+        with self.engine.connect() as db:
+            current=self._row(db,actor,doc_id,owner=True)
+            active=db.execute(select(users.c.active).where(users.c.tenant_id==actor.tenant_id,users.c.id==actor.subject,
+                users.c.role.in_(['manager','analyst']))).scalar_one_or_none()
+            if not active:raise DocumentError(403,'Current document processing permission required')
+            if current['revision']!=body.revision:raise DocumentError(409,'Document changed during OCR')
+        metadata=DocumentInput(title=source['title'],supplier_id=source['supplier_id'],contract_ref=source['contract_ref'],
+            version=body.version,order_ids=source['order_ids'],effective_from=source['effective_from'],effective_to=source['effective_to'])
+        # New versions are private by default; source ACL and active publication are never silently copied.
+        return self.upload(actor,metadata,source['content'],ocr_result=result)
+
     def page(self,actor,doc_id,page):
         with self.engine.connect() as db:
             doc=self._row(db,actor,doc_id)
@@ -99,7 +121,8 @@ class DocumentService:
                 document_pages.c.document_id==doc_id,document_pages.c.page==page)).mappings().first()
             if row is None:raise DocumentError(404,'Page not found')
             if row['text_hash']!=text_hash(row['text']):raise DocumentError(409,'Page text integrity check failed')
-            return dict(row)|{'title':doc['title'],'version':doc['version'],'checksum':doc['checksum']}
+            return dict(row)|{'title':doc['title'],'version':doc['version'],'checksum':doc['checksum'],
+                'text_origin':'ocr' if doc['extraction'].get('ocr') else 'pdf_text'}
 
     def file(self,actor,doc_id):
         with self.engine.connect() as db:
@@ -129,7 +152,8 @@ class DocumentService:
         return {'source_type':'contract_pdf','source_id':doc['contract_ref'],'document_id':doc['id'],
             'version':doc['version'],'checksum':doc['checksum'],'page':fact['page'],
             'start':fact['start'],'end':fact['end'],'quote':fact['quote'],'text_hash':fact['text_hash'],
-            'location':f"/v1/documents/{doc['id']}/pages/{fact['page']}"}
+            'location':f"/v1/documents/{doc['id']}/pages/{fact['page']}",
+            **({'text_origin':'ocr','ocr_engine':doc['extraction']['ocr']['engine']} if doc['extraction'].get('ocr') else {})}
 
     def _check_citation(self,db,doc,citation):
         page=db.execute(select(document_pages).where(document_pages.c.tenant_id==doc['tenant_id'],
@@ -146,13 +170,15 @@ class DocumentService:
             with self.engine.begin() as db:
                 doc=self._row(db,actor,doc_id,owner=True)
                 extraction=doc['extraction']
+                if extraction.get('ocr') and not body.ocr_compared_to_original:
+                    raise DocumentError(409,'Compare OCR text with the original PDF and explicitly confirm the comparison')
                 if (doc['revision']!=body.revision or doc['checksum']!=body.checksum or
                         extraction['extraction_hash']!=body.extraction_hash):raise DocumentError(409,'Document/extraction revision changed')
                 if doc['state']!='EXTRACTED':raise DocumentError(409,'Only unambiguous calendar-day clauses can be approved; clarify or upload a corrected version')
                 # Recompute extraction from immutable stored pages before trusting persisted candidates.
                 pages=db.execute(select(document_pages.c.text).where(document_pages.c.tenant_id==actor.tenant_id,
                     document_pages.c.document_id==doc_id).order_by(document_pages.c.page)).scalars().all()
-                if extract_terms(pages,doc['supplier_id'])!=extraction:raise DocumentError(409,'Extraction integrity check failed')
+                if extract_terms(pages,doc['supplier_id'],extraction.get('ocr'))!=extraction:raise DocumentError(409,'Extraction integrity check failed')
                 citations=[self._citation(doc,f) for f in extraction['facts'] if f['field'] in {'grace_days','due_date'}]
                 for citation in citations:self._check_citation(db,doc,citation)
                 old=db.execute(select(contract_sources).where(contract_sources.c.tenant_id==actor.tenant_id,
@@ -175,7 +201,8 @@ class DocumentService:
                         .values(document_id=doc_id))
                     if changed.rowcount!=1:raise DocumentError(409,'Active contract source changed')
                 else:db.execute(insert(contract_sources).values(tenant_id=actor.tenant_id,supplier_id=doc['supplier_id'],document_id=doc_id,owner_id=actor.subject))
-                self._audit(db,actor,'document.reviewed_and_published',doc_id,{'version':doc['version'],'checksum':doc['checksum'],'terms_hash':terms['terms_hash']})
+                self._audit(db,actor,'document.reviewed_and_published',doc_id,{'version':doc['version'],'checksum':doc['checksum'],
+                    'terms_hash':terms['terms_hash'],'ocr_compared_to_original':bool(extraction.get('ocr') and body.ocr_compared_to_original)})
         except IntegrityError:raise DocumentError(409,'Active source changed while reviewing') from None
         return self.get(actor,doc_id)
 
@@ -195,7 +222,7 @@ class DocumentService:
             for citation in terms['citations']:self._check_citation(db,doc,citation)
             pages=db.execute(select(document_pages.c.text).where(document_pages.c.tenant_id==actor.tenant_id,
                 document_pages.c.document_id==doc['id']).order_by(document_pages.c.page)).scalars().all()
-            fresh=extract_terms(pages,supplier_id)
+            fresh=extract_terms(pages,supplier_id,doc['extraction'].get('ocr'))
             if fresh!=doc['extraction'] or any(terms[key]!=fresh[key] for key in ('grace_days','due_date','day_basis')):
                 raise DocumentError(409,'Reviewed values do not match the cited clauses')
             return {'id':doc['contract_ref'],'tenant_id':actor.tenant_id,'supplier_id':supplier_id,

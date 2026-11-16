@@ -40,6 +40,16 @@ Solo developer; part-time or full-time pace changes duration. Estimate: **21Ã¢â‚
 - [x] M5: Usable operations dashboard (role-aware UI, reviewed evidence/approvals, recorded traces and coverage-aware local usage estimates; see PHASE_5_REVIEW.md)
 - [x] M6: Published bounded synthetic evaluation and reproducible edited demo (see PHASE_6_REVIEW.md, evals/reports and docs/demo; production gates and business coverage gaps remain explicit)
 
+## Authorized extensions after the original roadmap
+
+The original roadmap ends at Phase 6. The following extensions were requested on 16 November 2026; their checkboxes are independent of the completed original milestones.
+
+- [ ] Phase 7: Local Arabic/English OCR for scanned PDFs; immutable derived versions, source provenance, bounded processing and explicit human comparison before publication.
+- [ ] Phase 8: Reviewed contract amendments and evidence-backed project exposure analysis; preserve uncertainty where inventory/schedule data is absent.
+- [ ] Phase 9: Controlled pilot and enterprise identity integration; configure an actual organization identity provider, retain tenant/role boundaries, and validate deployment/operational readiness. Production activation requires real deployment and identity-provider configuration.
+
+Start with Phase 7, then Phase 8, then Phase 9. Completion of one extension does not imply completion of the others.
+
 ## Priority rules
 P0: tenancy, tool policy, structured plans, evidence, approvals, idempotency, end-to-end demo.
 

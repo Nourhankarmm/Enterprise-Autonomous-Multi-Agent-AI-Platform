@@ -2,7 +2,7 @@
 from fastapi import Depends,File,Form,UploadFile,Query
 from fastapi.responses import JSONResponse,Response
 from pydantic import ValidationError
-from .schemas import DocumentInput,ReviewInput,ACLInput,DocumentError,MAX_PDF_BYTES,MAX_REQUEST_BYTES
+from .schemas import DocumentInput,ReviewInput,OCRInput,ACLInput,DocumentError,MAX_PDF_BYTES,MAX_REQUEST_BYTES
 from .service import DocumentService
 
 class UploadLimitMiddleware:
@@ -49,6 +49,14 @@ def register_document_routes(app,engine,reader,viewer=None):
 
     @app.get('/v1/documents')
     def list_documents(actor=Depends(viewer)):return service.list(actor)
+
+    @app.get('/v1/document-capabilities')
+    def capabilities(actor=Depends(reader)):
+        from .ocr import available
+        return {'ocr_available':available(),'ocr_languages':['ara','eng'],'ocr_max_pages':5,'ocr_requires_comparison':True}
+
+    @app.post('/v1/documents/{document_id}/ocr',status_code=201)
+    def ocr(document_id:str,body:OCRInput,actor=Depends(reader)):return service.ocr(actor,document_id,body)
 
     @app.get('/v1/document-readers')
     def readers(actor=Depends(reader)):return service.readers(actor)

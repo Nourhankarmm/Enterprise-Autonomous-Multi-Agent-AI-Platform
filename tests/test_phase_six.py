@@ -28,6 +28,8 @@ class PhaseSixTests(unittest.TestCase):
         self.client.__exit__(None,None,None)
         self.settings=patch.dict(os.environ,{'RATE_LIMIT_ENABLED':'1'}|{k:str(v) for k,v in settings.items()});self.settings.start()
         self.app=create_app(self.path,self.tokens,DemoPlanner())
+        # Keep multi-request assertions in one fixed window; expiry is tested with an explicit advancing clock below.
+        self.app.state.rate_limiter.clock=lambda:1800000000
         self.client=TestClient(self.app,raise_server_exceptions=False);self.client.__enter__()
         # Isolate peer budgets across tests sharing a PostgreSQL database.
         with self.engine.begin() as db:db.execute(rate_windows.delete())

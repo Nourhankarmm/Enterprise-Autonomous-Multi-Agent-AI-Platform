@@ -31,6 +31,12 @@ class ReviewInput(BaseModel):
     revision:int=Field(ge=1)
     checksum:str=Field(pattern=r'^[a-f0-9]{64}$')
     extraction_hash:str=Field(pattern=r'^[a-f0-9]{64}$')
+    ocr_compared_to_original:bool=False
+
+class OCRInput(BaseModel):
+    model_config=ConfigDict(extra='forbid')
+    revision:int=Field(ge=1)
+    version:int=Field(ge=2,le=10000)
 
 class ACLInput(BaseModel):
     model_config=ConfigDict(extra='forbid')
