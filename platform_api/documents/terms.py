@@ -18,7 +18,7 @@ RULES=[
 def text_hash(text):return hashlib.sha256(text.encode()).hexdigest()
 
 
-def extract_terms(pages,supplier_id,ocr=None):
+def extract_terms(pages,supplier_id,ocr=None,document_kind='contract'):
     facts=[]
     for page_number,text in enumerate(pages,1):
         normalized=text.translate(DIGITS)
@@ -45,6 +45,8 @@ def extract_terms(pages,supplier_id,ocr=None):
     elif any(f['value']!=supplier_id for f in suppliers):state='CONFLICT';reason='SUPPLIER_LINK_CONFLICT'
     elif len(values)>1 or len({f['value'] for f in dues})>1:state='CONFLICT';reason='CONTRADICTORY_CLAUSES'
     elif any(f['value'] is None for f in dues):state='NEEDS_REVIEW';reason='INVALID_DATE'
+    elif document_kind=='amendment' and not dues:state='NEEDS_REVIEW';reason='AMENDMENT_DUE_MISSING'
+    elif document_kind=='amendment' and not grace:state='EXTRACTED';reason='EXPLICIT_AMENDMENT_PENDING_REVIEW'
     elif not grace:state='NEEDS_REVIEW';reason='GRACE_NOT_EXPLICIT'
     elif grace[0]['day_basis']!='calendar':state='NEEDS_REVIEW';reason='BUSINESS_CALENDAR_REQUIRED'
     elif grace[0]['value']>365:state='NEEDS_REVIEW';reason='GRACE_OUTSIDE_DEMO_POLICY'
@@ -54,6 +56,7 @@ def extract_terms(pages,supplier_id,ocr=None):
         'day_basis':grace[0]['day_basis'] if len(values)==1 else None,
         'due_date':dues[0]['value'] if dues and len({f['value'] for f in dues})==1 else None,
         'supplier_link':'EXPLICIT' if suppliers else 'MANUAL_REVIEW_REQUIRED'}
+    if document_kind=='amendment':result['document_kind']='amendment'
     if ocr is not None:
         result['ocr']=ocr
         # Confidence is a conservative gate, never a calibrated correctness probability.

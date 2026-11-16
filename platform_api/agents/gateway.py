@@ -6,6 +6,7 @@ from ..documents.intelligence import assess_with_evidence as assess_order
 from ..documents.service import DocumentService
 from ..database import engine_for
 from types import SimpleNamespace
+from ..projects import project_exposure
 
 class TransientToolError(Exception):
     pass
@@ -40,9 +41,11 @@ class ToolGateway:
                 source=DocumentService(engine)
                 by_order={o['id']:source.resolve(self.actor,o['supplier_id'],o['id'],as_of,
                     self.erp.contract(o['supplier_id'])) for o in orders}
+                from ..amendments import AmendmentService
+                authority_stamps={o['id']:AmendmentService(engine).stamp(self.actor,o['id'],as_of) for o in orders}
             finally:engine.dispose()
             values={o['supplier_id']:by_order[o['id']] for o in orders}
-            return {'items':values,'by_order':by_order,'snapshot_hash':canonical_hash(by_order)}
+            return {'items':values,'by_order':by_order,'authority_stamps':authority_stamps,'snapshot_hash':canonical_hash({'contracts':by_order,'authorities':authority_stamps})}
         if capability=='procurement.assess':
             orders=outputs['purchase_orders.read']['items'];contracts=outputs['contracts.read']['items']
             return {'findings':[assess_order(o,outputs['contracts.read'].get('by_order',{}).get(o['id'],contracts[o['supplier_id']]),as_of) for o in orders]}
@@ -65,6 +68,7 @@ class ToolGateway:
             verified=outputs['findings.verify']
             if not verified['valid']:
                 raise PlanRejected('Unverified findings cannot be reported')
-            return {'findings':outputs['procurement.assess']['findings'],'verification':verified,
+            return {'findings':outputs['procurement.assess']['findings'],'projects':project_exposure(outputs['procurement.assess']['findings']),'verification':verified,
+                    'authority_stamps':outputs['contracts.read'].get('authority_stamps',{}),
                     'unresolved_order_ids':verified['unresolved_order_ids'],'conflicting_order_ids':verified.get('conflicting_order_ids',[]),'external_actions':0}
         raise PlanRejected('Capability is not allowlisted')

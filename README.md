@@ -159,4 +159,8 @@ Phase 1 image builds, fresh Compose startup, HTTP acceptance and cleanup passed 
 
 ## Scanned contract extension
 
-Phase 7 adds explicit local Arabic/English OCR into a new private document version. Compare the derived text with the original PDF before publication. See [OCR setup and limits](docs/PHASE_7_REVIEW.md). Contract amendments/project exposure and enterprise pilot identity remain subsequent extensions, not completed features.
+Phase 7 adds explicit local Arabic/English OCR into a new private document version. Compare the derived text with the original PDF before publication. See [OCR setup and limits](docs/PHASE_7_REVIEW.md). Reviewed contract amendments and project delivery exposure are described in [Phase 8](docs/PHASE_8_REVIEW.md); enterprise pilot identity remains the subsequent extension.
+
+## Reviewed amendments and project exposure
+
+Phase 8 separates amendment-text review from independent signed-copy attestation, applies approved dates only to the scoped order, and preserves the original ERP date. Project exposure groups cited purchase-order findings while inventory shortage and project schedule delay remain unknown. See [review and limits](docs/PHASE_8_REVIEW.md). Migration 0008 is required.

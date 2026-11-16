@@ -1,4 +1,5 @@
 from datetime import date
+from typing import Literal
 from pydantic import BaseModel,ConfigDict,Field,model_validator
 
 MAX_PDF_BYTES=2*1024*1024
@@ -15,6 +16,7 @@ class DocumentInput(BaseModel):
     supplier_id:str=Field(min_length=1,max_length=80)
     contract_ref:str=Field(min_length=1,max_length=80,pattern=r'^[A-Za-z0-9_-]+$')
     version:int=Field(ge=1,le=10000)
+    kind:Literal['contract','amendment']='contract'
     order_ids:list[str]=Field(default_factory=list,max_length=20)
     effective_from:date|None=None
     effective_to:date|None=None

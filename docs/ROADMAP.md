@@ -44,7 +44,7 @@ Solo developer; part-time or full-time pace changes duration. Estimate: **21Ã¢â‚
 
 The original roadmap ends at Phase 6. The following extensions were requested on 16 November 2026; their checkboxes are independent of the completed original milestones.
 
-- [ ] Phase 7: Local Arabic/English OCR for scanned PDFs; immutable derived versions, source provenance, bounded processing and explicit human comparison before publication.
+- [x] Phase 7: Local Arabic/English OCR for scanned PDFs; immutable derived versions, source provenance, bounded processing and explicit human comparison before publication (merged PR #7; see PHASE_7_REVIEW.md).
 - [ ] Phase 8: Reviewed contract amendments and evidence-backed project exposure analysis; preserve uncertainty where inventory/schedule data is absent.
 - [ ] Phase 9: Controlled pilot and enterprise identity integration; configure an actual organization identity provider, retain tenant/role boundaries, and validate deployment/operational readiness. Production activation requires real deployment and identity-provider configuration.
 

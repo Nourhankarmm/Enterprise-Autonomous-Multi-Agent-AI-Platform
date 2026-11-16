@@ -9,6 +9,8 @@ STATS="""SELECT json_build_object(
  'documents',(SELECT count(*) FROM documents),
  'document_bytes',(SELECT string_agg(checksum||':'||encode(sha256(content),'hex'),',' ORDER BY id) FROM documents),
  'document_acl',(SELECT count(*) FROM document_acl),
+ 'amendments',(SELECT count(*) FROM amendment_proposals),
+ 'active_amendments',(SELECT count(*) FROM active_amendments),
  'workflows',(SELECT count(*) FROM workflow_runs),
  'approvals',(SELECT count(*) FROM approvals),
  'executions',(SELECT count(*) FROM action_executions),

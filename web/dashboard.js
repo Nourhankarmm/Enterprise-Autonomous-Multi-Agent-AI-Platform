@@ -1,21 +1,23 @@
 'use strict';
 let dashboardData=null,workspaceView='overview',durableEnabled=false,pollTimer=null,pollEpoch=0,pollBusy=false;
-const panelIds={overview:'overview-panel',analysis:'analysis-panel',workflows:'durable-area',documents:'documents-panel',usage:'usage-panel',procurement:'procurement-panel'};
+const panelIds={amendments:'amendments-panel',projects:'projects-panel',overview:'overview-panel',analysis:'analysis-panel',workflows:'durable-area',documents:'documents-panel',usage:'usage-panel',procurement:'procurement-panel'};
 const displayState=value=>workflowLabels[value]??value;
 const formatTime=value=>value?new Date(value).toLocaleString('ar-EG'):'غير مسجّل';
-function clearDashboard(){pollEpoch++;clearTimeout(pollTimer);dashboardData=null;for(const id of ['dashboard-rows','dashboard-metrics','usage-rows','usage-metrics','agent-trace','workflow-timeline','operation-history','operation-events','operation-findings','plan-tasks'])el(id).replaceChildren();el('usage-coverage').textContent='';el('last-sync').textContent='';el('approval-status').textContent='';el('goal').value='';for(const id of ['operation-question','operation-summary','plan-metadata'])el(id).textContent='';}
+function clearDashboard(){clearPhaseEight();pollEpoch++;clearTimeout(pollTimer);dashboardData=null;for(const id of ['dashboard-rows','dashboard-metrics','usage-rows','usage-metrics','agent-trace','workflow-timeline','operation-history','operation-events','operation-findings','plan-tasks'])el(id).replaceChildren();el('usage-coverage').textContent='';el('last-sync').textContent='';el('approval-status').textContent='';el('goal').value='';for(const id of ['operation-question','operation-summary','plan-metadata'])el(id).textContent='';}
 function showWorkspaceView(view,focus=false){
   if(!token||!panelIds[view])return;
-  if(currentIdentity?.role==='approver'&&['analysis','usage','procurement'].includes(view))view='overview';
+  if(currentIdentity?.role==='approver'&&['analysis','usage','procurement','projects'].includes(view))view='overview';
   workspaceView=view;for(const [name,id] of Object.entries(panelIds))el(id).hidden=name!==view;
   for(const button of el('workspace-nav').querySelectorAll('button'))button.setAttribute('aria-pressed',String(button.dataset.view===view));
   if(focus)el(panelIds[view]).querySelector('h2')?.focus();
+  if(view==='amendments')loadAmendments().catch(error=>el('message').textContent=error.message);
+  if(view==='projects'&&!el('project-as-of').value)el('project-as-of').value=el('analysis-date').value;
   if(view==='usage')loadUsage().catch(error=>el('message').textContent=error.message);
 }
 function metric(target,label,value,note=''){const card=document.createElement('div');card.className='metric';const strong=document.createElement('strong');strong.textContent=value;const span=document.createElement('span');span.textContent=label;card.append(strong,span);if(note){const small=document.createElement('small');small.textContent=note;card.append(small);}target.append(card);}
 async function initDashboard(identity){
   currentIdentity=identity;const approver=identity.role==='approver';
-  for(const button of el('workspace-nav').querySelectorAll('button'))button.hidden=approver&&['analysis','usage','procurement'].includes(button.dataset.view);
+  for(const button of el('workspace-nav').querySelectorAll('button'))button.hidden=approver&&['analysis','usage','procurement','projects'].includes(button.dataset.view);
   el('dashboard-new-goal').hidden=approver;el('document-form').hidden=approver;el('sample-controls').hidden=approver;document.querySelector('#documents-panel > p').textContent=approver?'تصفّح الأدلة التي شاركها مالك المستند معك، وافتح الصفحة قبل الموافقة على المسودة.':'ارفع PDF نصّيًا، راجع البنود والصفحات، ثم اعتمده مصدرًا للتحليل. المستند خاص بك افتراضيًا، والنص لا يُرسل إلى مزوّد AI.';
   if(approver)await loadDocumentWorkspace();
   if(!el('goal').value)el('goal').value='حلل تأخير طلبات الشراء المفتوحة';

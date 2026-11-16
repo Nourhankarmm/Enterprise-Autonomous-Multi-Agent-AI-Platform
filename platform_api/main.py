@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import insert, select, delete
 from .domain import assess_order
 from .store import MockERP, initialize
-from .database import engine_for, audit_events, sessions, document_families,rate_windows
+from .database import engine_for, audit_events, sessions, document_families,rate_windows,documents,amendment_proposals,active_amendments
 from .security import (DatabaseRateLimiter,HardeningMiddleware,RateLimited,LimiterUnavailable,
     positive_setting,validate_deployment,response_headers)
 from .auth import login, resolve_session, token_hash
@@ -61,6 +61,9 @@ def create_app(db_path: str | None = None, tokens: dict[str, Identity] | None = 
             db.execute(select(audit_events.c.id).limit(1))
             db.execute(select(document_families.c.tenant_id).limit(1))
             db.execute(select(rate_windows.c.scope).limit(1))
+            db.execute(select(documents.c.kind).limit(1))
+            db.execute(select(amendment_proposals.c.id).limit(1))
+            db.execute(select(active_amendments.c.amendment_id).limit(1))
         yield
         engine.dispose()
 
@@ -119,6 +122,7 @@ def create_app(db_path: str | None = None, tokens: dict[str, Identity] | None = 
         with engine.connect() as db:
             db.execute(select(audit_events.c.id).limit(1))
             db.execute(select(document_families.c.tenant_id).limit(1))
+            db.execute(select(amendment_proposals.c.id).limit(1))
         return {'status': 'ok', 'mode': 'synthetic', 'database': engine.dialect.name, 'auth': 'local-stub'}
 
     @app.post('/v1/auth/login')
@@ -187,6 +191,8 @@ def create_app(db_path: str | None = None, tokens: dict[str, Identity] | None = 
             limiter.consume('search',actor.tenant_id+'/'+actor.subject,search_limit)
         return actor
     register_document_routes(app,engine,reader,document_reader)
+    from .phase_eight_routes import register as register_phase_eight
+    register_phase_eight(app,engine,path,reader,document_reader)
     from .workflows.routes import register_workflow_routes
     register_workflow_routes(app,engine,path,identity,reader)
     from .dashboard import register_dashboard_routes

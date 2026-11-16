@@ -16,7 +16,7 @@ python scripts/run_regressions.py
 python scripts/run_evaluation.py
 ```
 
-The API binds to `127.0.0.1:8000`; databases and Temporal are private to the Compose network. Migrations run before seed/API/worker. Revision `0007` adds shared admission windows. Back up before upgrades; do not automatically downgrade a database containing new production records. SQLite is a local/test option, not the deployment concurrency baseline. CI separately runs regressions against PostgreSQL 17 and the disposable Compose stack.
+The API binds to `127.0.0.1:8000`; databases and Temporal are private to the Compose network. Migrations run before seed/API/worker. Revision `0007` adds shared admission windows; `0008` adds document kinds and independently reviewed amendments. Back up before upgrades; do not automatically downgrade a database containing new production records. SQLite is a local/test option, not the deployment concurrency baseline. CI separately runs regressions against PostgreSQL 17 and the disposable Compose stack.
 
 ## Admission and HTTP controls
 
