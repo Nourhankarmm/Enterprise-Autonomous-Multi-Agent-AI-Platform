@@ -187,6 +187,8 @@ def create_app(db_path: str | None = None, tokens: dict[str, Identity] | None = 
             limiter.consume('search',actor.tenant_id+'/'+actor.subject,search_limit)
         return actor
     register_document_routes(app,engine,reader,document_reader)
+    from .phase_eight_routes import register as register_phase_eight
+    register_phase_eight(app,engine,path,reader,document_reader)
     from .workflows.routes import register_workflow_routes
     register_workflow_routes(app,engine,path,identity,reader)
     from .dashboard import register_dashboard_routes

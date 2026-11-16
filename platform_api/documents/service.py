@@ -1,7 +1,7 @@
 """Tenant/document ACL boundary and immutable evidence-backed contract publication."""
 import hashlib,math,re,uuid
 from collections import Counter
-from datetime import datetime,timezone
+from datetime import date,datetime,timezone
 from sqlalchemy import select,insert,update,delete,exists,and_,or_,func
 from sqlalchemy.exc import IntegrityError
 from ..database import (document_families,documents,document_acl,document_pages,document_chunks,contract_sources,
@@ -46,13 +46,13 @@ class DocumentService:
     def list(self,actor):
         with self.engine.connect() as db:
             rows=db.execute(select(documents.c.id,documents.c.title,documents.c.supplier_id,documents.c.contract_ref,
-                documents.c.version,documents.c.state,documents.c.page_count,documents.c.created_at).where(self.allowed(actor))
+                documents.c.version,documents.c.state,documents.c.kind,documents.c.page_count,documents.c.created_at).where(self.allowed(actor))
                 .order_by(documents.c.created_at.desc()).limit(100)).mappings()
             return {'items':[dict(row) for row in rows]}
 
     def readers(self,actor):
         with self.engine.connect() as db:
-            return {'items':[dict(r) for r in db.execute(select(users.c.id,users.c.username).where(
+            return {'items':[dict(r) for r in db.execute(select(users.c.id,users.c.username,users.c.role).where(
                 users.c.tenant_id==actor.tenant_id,users.c.active.is_(True),users.c.role.in_(['manager','analyst','approver']),
                 users.c.id!=actor.subject).limit(100)).mappings()]}
 
@@ -70,7 +70,7 @@ class DocumentService:
             if db.execute(select(func.count()).select_from(documents).where(documents.c.tenant_id==actor.tenant_id)).scalar_one()>=100:
                 raise DocumentError(409,'Demo company document limit reached')
         pages=ocr_result['pages'] if ocr_result else extract_pages(data)
-        extraction=extract_terms(pages,metadata.supplier_id,ocr_result['ocr'] if ocr_result else None)
+        extraction=extract_terms(pages,metadata.supplier_id,ocr_result['ocr'] if ocr_result else None,metadata.kind)
         doc_id=str(uuid.uuid4());checksum=hashlib.sha256(data).hexdigest()
         try:
             with self.engine.begin() as db:
@@ -80,7 +80,7 @@ class DocumentService:
                 db.execute(insert(documents).values(tenant_id=actor.tenant_id,id=doc_id,owner_id=actor.subject,
                     supplier_id=metadata.supplier_id,contract_ref=metadata.contract_ref,version=metadata.version,
                     title=metadata.title,checksum=checksum,content=data,byte_size=len(data),page_count=len(pages),
-                    state=extraction['state'],revision=1,extraction=extraction,order_ids=metadata.order_ids,
+                    state=extraction['state'],revision=1,extraction=extraction,order_ids=metadata.order_ids,kind=metadata.kind,
                     effective_from=metadata.effective_from.isoformat() if metadata.effective_from else None,
                     effective_to=metadata.effective_to.isoformat() if metadata.effective_to else None,
                     created_at=datetime.now(timezone.utc).isoformat()))
@@ -110,7 +110,7 @@ class DocumentService:
             if not active:raise DocumentError(403,'Current document processing permission required')
             if current['revision']!=body.revision:raise DocumentError(409,'Document changed during OCR')
         metadata=DocumentInput(title=source['title'],supplier_id=source['supplier_id'],contract_ref=source['contract_ref'],
-            version=body.version,order_ids=source['order_ids'],effective_from=source['effective_from'],effective_to=source['effective_to'])
+            version=body.version,kind=source['kind'],order_ids=source['order_ids'],effective_from=source['effective_from'],effective_to=source['effective_to'])
         # New versions are private by default; source ACL and active publication are never silently copied.
         return self.upload(actor,metadata,source['content'],ocr_result=result)
 
@@ -178,11 +178,12 @@ class DocumentService:
                 # Recompute extraction from immutable stored pages before trusting persisted candidates.
                 pages=db.execute(select(document_pages.c.text).where(document_pages.c.tenant_id==actor.tenant_id,
                     document_pages.c.document_id==doc_id).order_by(document_pages.c.page)).scalars().all()
-                if extract_terms(pages,doc['supplier_id'],extraction.get('ocr'))!=extraction:raise DocumentError(409,'Extraction integrity check failed')
+                if extract_terms(pages,doc['supplier_id'],extraction.get('ocr'),doc['kind'])!=extraction:raise DocumentError(409,'Extraction integrity check failed')
                 citations=[self._citation(doc,f) for f in extraction['facts'] if f['field'] in {'grace_days','due_date'}]
                 for citation in citations:self._check_citation(db,doc,citation)
                 old=db.execute(select(contract_sources).where(contract_sources.c.tenant_id==actor.tenant_id,
                     contract_sources.c.supplier_id==doc['supplier_id'])).mappings().first()
+                if doc['kind']=='amendment':old=None
                 if old:
                     if old['owner_id']!=actor.subject:raise DocumentError(409,'Only the active source owner can replace it')
                     prior=self._row(db,actor,old['document_id'],owner=True)
@@ -200,13 +201,32 @@ class DocumentService:
                         contract_sources.c.supplier_id==doc['supplier_id'],contract_sources.c.document_id==old['document_id'])
                         .values(document_id=doc_id))
                     if changed.rowcount!=1:raise DocumentError(409,'Active contract source changed')
-                else:db.execute(insert(contract_sources).values(tenant_id=actor.tenant_id,supplier_id=doc['supplier_id'],document_id=doc_id,owner_id=actor.subject))
-                self._audit(db,actor,'document.reviewed_and_published',doc_id,{'version':doc['version'],'checksum':doc['checksum'],
+                elif doc['kind']=='contract':db.execute(insert(contract_sources).values(tenant_id=actor.tenant_id,supplier_id=doc['supplier_id'],document_id=doc_id,owner_id=actor.subject))
+                self._audit(db,actor,'amendment_document.reviewed' if doc['kind']=='amendment' else 'document.reviewed_and_published',doc_id,{'version':doc['version'],'checksum':doc['checksum'],
                     'terms_hash':terms['terms_hash'],'ocr_compared_to_original':bool(extraction.get('ocr') and body.ocr_compared_to_original)})
         except IntegrityError:raise DocumentError(409,'Active source changed while reviewing') from None
         return self.get(actor,doc_id)
 
+    def reviewed_document(self,db,actor,doc_id):
+        doc=self._row(db,actor,doc_id)
+        if doc['state']!='READY':raise DocumentError(409,'Reviewed source required')
+        terms=doc['approved_terms']
+        if not terms or terms['terms_hash']!=canonical_hash({k:v for k,v in terms.items() if k!='terms_hash'}):
+            raise DocumentError(409,'Reviewed terms integrity check failed')
+        for citation in terms['citations']:self._check_citation(db,doc,citation)
+        pages=db.execute(select(document_pages.c.text).where(document_pages.c.tenant_id==actor.tenant_id,
+            document_pages.c.document_id==doc_id).order_by(document_pages.c.page)).scalars().all()
+        fresh=extract_terms(pages,doc['supplier_id'],doc['extraction'].get('ocr'),doc['kind'])
+        if fresh!=doc['extraction'] or any(terms[k]!=fresh[k] for k in ('grace_days','due_date','day_basis')):
+            raise DocumentError(409,'Reviewed evidence changed')
+        return doc
+
     def resolve(self,actor,supplier_id,order_id,as_of,fixture):
+        base=self._resolve_base(actor,supplier_id,order_id,as_of,fixture)
+        from ..amendments import AmendmentService
+        return AmendmentService(self.engine).apply(actor,order_id,as_of,base)
+
+    def _resolve_base(self,actor,supplier_id,order_id,as_of,fixture):
         with self.engine.connect() as db:
             binding=db.execute(select(contract_sources.c.document_id).where(contract_sources.c.tenant_id==actor.tenant_id,
                 contract_sources.c.supplier_id==supplier_id)).scalar_one_or_none()
@@ -222,7 +242,7 @@ class DocumentService:
             for citation in terms['citations']:self._check_citation(db,doc,citation)
             pages=db.execute(select(document_pages.c.text).where(document_pages.c.tenant_id==actor.tenant_id,
                 document_pages.c.document_id==doc['id']).order_by(document_pages.c.page)).scalars().all()
-            fresh=extract_terms(pages,supplier_id,doc['extraction'].get('ocr'))
+            fresh=extract_terms(pages,supplier_id,doc['extraction'].get('ocr'),doc['kind'])
             if fresh!=doc['extraction'] or any(terms[key]!=fresh[key] for key in ('grace_days','due_date','day_basis')):
                 raise DocumentError(409,'Reviewed values do not match the cited clauses')
             return {'id':doc['contract_ref'],'tenant_id':actor.tenant_id,'supplier_id':supplier_id,
@@ -231,9 +251,11 @@ class DocumentService:
                 'version':doc['version'],'location':terms['citations'][0]['location'],'citations':terms['citations']}
 
     def assert_snapshot_access(self,actor,value,current=False):
-        refs={};citations=[];contracts=[]
+        refs={};citations=[];contracts=[];amendments=[];authority_stamps=[]
         def walk(item):
             if isinstance(item,dict):
+                if 'amendment_authority_fingerprint' in item:authority_stamps.append(item)
+                if item.get('amendment_id') and item.get('action_hash'):amendments.append(item)
                 if item.get('document_id') and item.get('checksum'):
                     refs[item['document_id']]=item['checksum']
                     if all(key in item for key in ('page','start','end','quote','text_hash')):citations.append(item)
@@ -242,7 +264,7 @@ class DocumentService:
             elif isinstance(item,list):
                 for child in item:walk(child)
         walk(value)
-        if not refs:return
+        if not refs and not authority_stamps:return
         with self.engine.connect() as db:
             for doc_id,checksum in refs.items():
                 try:doc=self._row(db,actor,doc_id)
@@ -253,10 +275,18 @@ class DocumentService:
                         raise DocumentError(409,'Cached contract values differ from reviewed evidence')
                 for citation in citations:
                     if citation['document_id']==doc_id:self._check_citation(db,doc,citation)
-                if current:
+                if current and doc['kind']=='contract':
                     binding=db.execute(select(contract_sources.c.document_id).where(contract_sources.c.tenant_id==actor.tenant_id,
                         contract_sources.c.supplier_id==doc['supplier_id'])).scalar_one_or_none()
                     if binding!=doc_id:raise DocumentError(409,'Active evidence source changed; review a new plan')
+        if current and amendments:
+            from ..amendments import AmendmentService
+            for amendment in amendments:AmendmentService(self.engine).assert_current(actor,amendment)
+        if current and authority_stamps:
+            from ..amendments import AmendmentService
+            for stamp in authority_stamps:
+                if AmendmentService(self.engine).stamp(actor,stamp['order_id'],date.fromisoformat(stamp['as_of']))!=stamp:
+                    raise DocumentError(409,'Amendment authority changed; review a new plan')
 
     def search(self,actor,query,limit=10):
         terms=re.findall(r'[^\W_]+',query.casefold(),re.UNICODE)[:30]
