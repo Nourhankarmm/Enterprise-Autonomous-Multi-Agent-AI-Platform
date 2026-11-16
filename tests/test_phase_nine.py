@@ -201,3 +201,11 @@ class PhaseNineTests(unittest.TestCase):
             self.client=TestClient(self.app,base_url='https://app.example.invalid');self.client.__enter__()
             self.start();response=self.client.get('/v1/auth/oidc/start',follow_redirects=False)
             self.assertEqual(response.status_code,429);self.assertIn('Retry-After',response.headers)
+    def test_invalid_authentication_requests_never_reflect_passwords_codes_or_provider_errors(self):
+        secret='synthetic-sensitive-auth-value-'
+        response=self.client.post('/v1/auth/login',json={'username':self.alice,'password':secret*100})
+        self.assertEqual(response.status_code,422);self.assertNotIn(secret,response.text)
+        self.start();response=self.finish(error=secret*100)
+        self.assertEqual(response.status_code,401);self.assertNotIn(secret,response.text)
+        response=self.finish(state=secret*100,code=secret*200)
+        self.assertEqual(response.status_code,401);self.assertNotIn(secret,response.text)

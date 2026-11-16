@@ -7,6 +7,21 @@ import requests
 FILES=['docker','compose','-f','compose.yaml','-f','compose.oidc.yaml']
 def compose_identity(*args,**kwargs):return subprocess.run([*FILES,*args],check=True,timeout=240,**kwargs)
 
+def safe_http(client,method,url,**kwargs):
+    try:return client.request(method,url,**kwargs)
+    except requests.RequestException:raise RuntimeError('Local identity HTTP request failed') from None
+
+def local_browser_cookies(browser,url):
+    # Browsers treat localhost as a secure context; requests' cookie jar does not.
+    # Emulate that exception only for this explicit loopback test provider. Never alter cookie flags.
+    parsed=urlsplit(url)
+    if parsed.scheme!='http' or parsed.hostname!='localhost':raise RuntimeError('Loopback cookie fixture requires localhost')
+    pairs=[]
+    for cookie in browser.cookies:
+        if cookie.domain.lstrip('.') in {'localhost','localhost.local'} and parsed.path.startswith(cookie.path or '/'):
+            pairs.append(cookie.name+'='+cookie.value)
+    return '; '.join(pairs)
+
 class LoginForm(HTMLParser):
     def __init__(self):super().__init__();self.action=None;self.values={};self.selected=False
     def handle_starttag(self,tag,attrs):
@@ -74,9 +89,10 @@ engine.dispose()
         if response.status_code!=200 or len(response.content)>262144:raise RuntimeError('Synthetic IdP login form unavailable')
         form=LoginForm();form.feed(response.text)
         if not form.action or not form.action.startswith(self.issuer+'/'):raise RuntimeError('Unexpected IdP login action')
-        result=browser.post(form.action,data=form.values|{'username':username,'password':password},timeout=15,allow_redirects=False)
+        headers={'Cookie':local_browser_cookies(browser,form.action)} if urlsplit(form.action).hostname=='localhost' else {}
+        result=safe_http(browser,'POST',form.action,data=form.values|{'username':username,'password':password},headers=headers,timeout=15,allow_redirects=False)
         if result.status_code not in {302,303}:raise RuntimeError('Synthetic IdP authentication did not finish')
         callback=result.headers.get('Location','')
         if not callback.startswith(self.app+'/v1/auth/oidc/callback?'):raise RuntimeError('Unexpected OIDC callback')
-        completed=browser.get(callback,timeout=20,allow_redirects=False)
+        completed=safe_http(browser,'GET',callback,timeout=20,allow_redirects=False)
         return browser,completed,callback

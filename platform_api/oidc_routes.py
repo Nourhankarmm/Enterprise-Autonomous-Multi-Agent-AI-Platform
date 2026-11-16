@@ -1,7 +1,7 @@
 """Browser login routes; provider tokens never leave the backend or enter URLs/storage."""
-from fastapi import Depends,Query,Request
+from fastapi import Depends,Request
 from fastapi.responses import RedirectResponse,HTMLResponse
-from .oidc import OIDCService,OIDCError,FLOW_COOKIE,SESSION_COOKIE,csrf_token
+from .oidc import OIDCService,OIDCError,FLOW_COOKIE,SESSION_COOKIE,csrf_token,origin
 
 def register(app,engine,identity,config,limiter,rate_enabled,peer_limit,window):
     service=OIDCService(engine,config) if config else None
@@ -22,14 +22,18 @@ def register(app,engine,identity,config,limiter,rate_enabled,peer_limit,window):
         if rate_enabled:limiter.consume('oidc_peer',request.client.host if request.client else 'unknown',peer_limit,window)
     @app.get('/v1/auth/oidc/start')
     def start(request:Request):
-        admit(request);url,browser=service.begin();response=RedirectResponse(url,status_code=303)
+        admit(request)
+        if origin(str(request.url))!=origin(config.redirect_uri):
+            return RedirectResponse(origin(config.redirect_uri)+'/v1/auth/oidc/start',status_code=303)
+        url,browser=service.begin();response=RedirectResponse(url,status_code=303)
         response.set_cookie(FLOW_COOKIE,browser,httponly=True,secure=config.secure_cookie,samesite='lax',max_age=300,path='/v1/auth/oidc')
         return response
     @app.get('/v1/auth/oidc/callback')
-    def callback(request:Request,state:str=Query(default='',max_length=200),code:str=Query(default='',max_length=4096),
-            error:str|None=Query(default=None,max_length=200)):
+    def callback(request:Request):
         admit(request)
-        session,lifetime=service.finish(state,request.cookies.get(FLOW_COOKIE,''),code,error)
+        # Manual bounded validation keeps framework errors from reflecting provider query values.
+        query=request.query_params
+        session,lifetime=service.finish(query.get('state',''),request.cookies.get(FLOW_COOKIE,''),query.get('code',''),query.get('error'))
         response=RedirectResponse('/',status_code=303)
         response.delete_cookie(FLOW_COOKIE,path='/v1/auth/oidc',secure=config.secure_cookie,httponly=True,samesite='lax')
         response.set_cookie(SESSION_COOKIE,session,httponly=True,secure=config.secure_cookie,samesite='lax',max_age=lifetime,path='/')

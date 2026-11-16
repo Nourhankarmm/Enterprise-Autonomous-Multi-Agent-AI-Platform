@@ -1,7 +1,7 @@
 """Disposable actual-Keycloak OIDC flow, session, tenant and revocation acceptance."""
 import argparse,json,os
 from pathlib import Path
-from identity_demo_support import LocalIdentityDemo,compose_identity
+from identity_demo_support import LocalIdentityDemo,compose_identity,safe_http
 
 def main():
     parser=argparse.ArgumentParser();parser.add_argument('--disposable',action='store_true');args=parser.parse_args()
@@ -16,7 +16,7 @@ def main():
     assert identity['tenant_id']=='alpha' and identity['role']=='analyst'
     assert browser.get(demo.app+'/v1/purchase-orders/PO-B1',timeout=10).status_code==404
     assert browser.get(demo.app+'/v1/audit-events',timeout=10).status_code==403
-    assert browser.get(callback,timeout=10,allow_redirects=False).status_code==401
+    assert safe_http(browser,'GET',callback,timeout=10,allow_redirects=False).status_code==401
     assert browser.get(demo.app+'/v1/me',timeout=10).status_code==200
     session=browser.get(demo.app+'/v1/auth/session',timeout=10).json()
     assert 'csrf_token' in session and 'access_token' not in session

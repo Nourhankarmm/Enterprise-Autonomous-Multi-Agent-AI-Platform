@@ -124,6 +124,8 @@ jobs:
         run: |
           docker compose -f compose.yaml -f compose.oidc.yaml exec -T api python -m platform_api.pilot --allow-demo --output /tmp/phase9-readiness.json
           docker compose -f compose.yaml -f compose.oidc.yaml exec -T api python -c "from pathlib import Path; import sys; sys.stdout.buffer.write(Path('/tmp/phase9-readiness.json').read_bytes())" > .data/phase9-readiness.json
+      - name: Verify backup restore including external identity mappings
+        run: python scripts/verify_compose_restore.py
       - name: Publish evaluation artifacts
         if: always()
         uses: actions/upload-artifact@v4

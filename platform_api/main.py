@@ -9,6 +9,8 @@ from fastapi import Depends, FastAPI, HTTPException, Response, Request
 from fastapi.responses import FileResponse,JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from fastapi.exceptions import RequestValidationError
+from fastapi.exception_handlers import request_validation_exception_handler
 from pydantic import BaseModel, Field
 from sqlalchemy import insert, select, delete
 from .domain import assess_order
@@ -82,6 +84,12 @@ def create_app(db_path: str | None = None, tokens: dict[str, Identity] | None = 
         openapi_url=None if os.getenv('DEPLOYMENT_MODE')=='restricted' else '/openapi.json')
     app.state.rate_limiter=limiter
     bearer = HTTPBearer(auto_error=False)
+
+    @app.exception_handler(RequestValidationError)
+    async def safe_auth_validation(request,error):
+        if request.url.path.startswith('/v1/auth/'):
+            return JSONResponse(status_code=422,content={'detail':'Invalid authentication request'})
+        return await request_validation_exception_handler(request,error)
 
     @app.exception_handler(RateLimited)
     async def limited(request,error):
