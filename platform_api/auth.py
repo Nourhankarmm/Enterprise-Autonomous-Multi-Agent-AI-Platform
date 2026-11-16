@@ -4,7 +4,7 @@ import hmac
 import secrets
 import time
 from sqlalchemy import select, insert, delete
-from .database import users, sessions
+from .database import users, sessions,oidc_identities
 
 def password_hash(password, salt=None):
     salt = salt or secrets.token_hex(16)
@@ -30,9 +30,13 @@ def login(engine, username, password):
         db.execute(insert(sessions).values(token_hash=token_hash(token), user_id=user['id'], expires_at=time.time()+3600))
         return token, dict(user)
 
-def resolve_session(engine, token):
+def resolve_session(engine, token,auth_method='local'):
     with engine.connect() as db:
-        row = db.execute(select(users).join(sessions, sessions.c.user_id == users.c.id).where(
+        query=select(users).join(sessions,sessions.c.user_id==users.c.id)
+        if auth_method=='oidc':
+            query=query.join(oidc_identities,sessions.c.oidc_identity_id==oidc_identities.c.id).where(
+                oidc_identities.c.active.is_(True),oidc_identities.c.user_id==users.c.id)
+        row = db.execute(query.where(
             sessions.c.token_hash == token_hash(token), sessions.c.expires_at > time.time(),
-            users.c.active.is_(True))).mappings().first()
+            sessions.c.auth_method==auth_method,users.c.active.is_(True))).mappings().first()
         return dict(row) if row else None

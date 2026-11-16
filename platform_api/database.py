@@ -32,7 +32,22 @@ users = Table('users', metadata,
     ForeignKeyConstraint(['tenant_id'], ['tenants.id']))
 sessions = Table('sessions', metadata, Column('token_hash', String, primary_key=True),
     Column('user_id', String, nullable=False), Column('expires_at', Float, nullable=False),
-    ForeignKeyConstraint(['user_id'], ['users.id']))
+    Column('auth_method',String,nullable=False,server_default='local'),
+    Column('oidc_identity_id',String),
+    ForeignKeyConstraint(['user_id'], ['users.id']),
+    ForeignKeyConstraint(['oidc_identity_id'],['oidc_identities.id'],name='session_oidc_identity_fk'),
+    CheckConstraint("(auth_method = 'local' AND oidc_identity_id IS NULL) OR (auth_method = 'oidc' AND oidc_identity_id IS NOT NULL)",name='valid_session_auth_method'))
+
+oidc_identities = Table('oidc_identities',metadata,
+    Column('id',String,primary_key=True),Column('issuer',String,nullable=False),Column('subject',String,nullable=False),
+    Column('user_id',String,nullable=False,unique=True),Column('active',Boolean,nullable=False),
+    UniqueConstraint('issuer','subject',name='oidc_issuer_subject_unique'),
+    ForeignKeyConstraint(['user_id'],['users.id']))
+
+oidc_flows = Table('oidc_flows',metadata,
+    Column('state_hash',String,primary_key=True),Column('browser_hash',String,nullable=False),
+    Column('nonce_hash',String,nullable=False),Column('pkce_verifier',String,nullable=False),
+    Column('configuration_hash',String,nullable=False),Column('expires_at',Float,nullable=False))
 audit_events = Table('audit_events', metadata,
     Column('id', String, primary_key=True), Column('tenant_id', String, nullable=False),
     Column('actor_id', String, nullable=False), Column('action', String, nullable=False),

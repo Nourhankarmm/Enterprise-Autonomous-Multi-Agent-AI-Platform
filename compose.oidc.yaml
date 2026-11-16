@@ -1,0 +1,42 @@
+# Optional local identity-provider demonstration. This is not a production IdP deployment.
+services:
+  api:
+    environment:
+      AUTH_MODE: oidc
+      DEPLOYMENT_MODE: demo
+      REQUIRE_HTTPS: '0'
+      OIDC_ISSUER: http://localhost:${OIDC_BIND_PORT:-18080}/realms/platform
+      OIDC_CLIENT_ID: platform-demo
+      OIDC_REDIRECT_URI: http://127.0.0.1:${API_BIND_PORT:-8000}/v1/auth/oidc/callback
+      OIDC_ALLOW_HTTP: '1'
+      OIDC_BACKCHANNEL_ORIGIN: http://keycloak:8080
+    depends_on:
+      keycloak:
+        condition: service_healthy
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.8.2
+    command: ["start-dev", "--import-realm"]
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: demo-admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?Set a local Keycloak admin password}
+      KC_HOSTNAME: http://localhost:${OIDC_BIND_PORT:-18080}
+      KC_HEALTH_ENABLED: 'true'
+      JAVA_OPTS_KC_HEAP: '-Xms128m -Xmx512m'
+    ports:
+      - '127.0.0.1:${OIDC_BIND_PORT:-18080}:8080'
+    volumes:
+      - keycloak_data:/opt/keycloak/data
+      - ./config/keycloak/platform-realm.json:/opt/keycloak/data/import/platform-realm.json:ro
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 1g
+    cpus: 1.0
+    pids_limit: 128
+    healthcheck:
+      test: ["CMD", "/bin/bash", "-c", "{ printf 'HEAD /health/ready HTTP/1.0\\r\\n\\r\\n' >&0; grep 'HTTP/1.0 200'; } 0<>/dev/tcp/localhost/9000"]
+      interval: 5s
+      timeout: 5s
+      retries: 40
+      start_period: 30s
+volumes:
+  keycloak_data:

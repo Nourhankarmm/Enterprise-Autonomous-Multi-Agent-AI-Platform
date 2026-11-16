@@ -1,5 +1,7 @@
 'use strict';
 let token = null;
+let cookieSession=false,csrfConfirmation=null;
+function sessionHeaders(){return !token?{}:cookieSession?{'X-CSRF-Token':csrfConfirmation??''}:{Authorization:`Bearer ${token}`};}
 const el = id => document.getElementById(id);
 const labels = {HIGH:'عالية', MEDIUM:'متوسطة', LOW:'منخفضة'};
 const errorMessages={
@@ -16,10 +18,10 @@ const errorMessages={
 };
 el('as-of').value = new Date().toLocaleDateString('en-CA');
 function clearWorkspace() { el('rows').replaceChildren(); el('metrics').replaceChildren(); el('identity').textContent=''; }
-function loggedOut() { clearDashboard(); clearWorkflowWorkspace();currentIdentity=null; clearDocumentWorkspace();currentOperation=null;el('operation-detail').hidden=true;el('operation-history').replaceChildren();token=null; clearWorkspace(); el('workspace').hidden=true; el('login-panel').hidden=false; }
+function loggedOut() {cookieSession=false;csrfConfirmation=null; clearDashboard(); clearWorkflowWorkspace();currentIdentity=null; clearDocumentWorkspace();currentOperation=null;el('operation-detail').hidden=true;el('operation-history').replaceChildren();token=null; clearWorkspace(); el('workspace').hidden=true; el('login-panel').hidden=false; }
 async function api(path, options={}) {
   const requestToken=token;
-  const response=await fetch(path, {...options, headers:{...(options.body instanceof FormData?{}:{'Content-Type':'application/json'}),...(options.headers??{}), ...(requestToken?{Authorization:`Bearer ${requestToken}`}:{})}});
+  const response=await fetch(path, {...options, headers:{...(options.body instanceof FormData?{}:{'Content-Type':'application/json'}),...(options.headers??{}), ...sessionHeaders()}});
   if(requestToken!==token&&path!=='/v1/auth/login')throw new Error('تغيرت الجلسة؛ تجاهلنا الرد السابق.');
   if (!response.ok) {
     if(response.status===401 && token) loggedOut();
@@ -55,12 +57,12 @@ async function load() {
 }
 el('login-form').addEventListener('submit',async event=>{
   event.preventDefault();el('login-button').disabled=true;el('message').textContent='جارٍ تسجيل الدخول…';
-  try {const result=await api('/v1/auth/login',{method:'POST',body:JSON.stringify({username:el('username').value,password:el('password').value})});token=result.access_token;el('password').value='';el('login-panel').hidden=true;el('workspace').hidden=false;await loadWorkflowWorkspace(result.identity);if(result.identity.role!=='approver'){await load();await loadAgentWorkspace();await loadDocumentWorkspace();}else{el('identity').textContent=result.identity.tenant_id+' · approver';el('message').textContent='';}if(token)await initDashboard(result.identity);}
+  try {const result=await api('/v1/auth/login',{method:'POST',body:JSON.stringify({username:el('username').value,password:el('password').value})});cookieSession=false;csrfConfirmation=null;token=result.access_token;el('password').value='';await enterWorkspace(result.identity);}
   catch(error){el('message').textContent=error.message;}
   finally{el('login-button').disabled=false;}
 });
 el('refresh').addEventListener('click',load);
-el('logout').addEventListener('click',async()=>{try{await api('/v1/auth/logout',{method:'POST'});loggedOut();el('message').textContent='تم تسجيل الخروج.';}catch(error){el('message').textContent=error.message;}});
+el('logout').addEventListener('click',async()=>{try{const wasCookie=cookieSession;await api('/v1/auth/logout',{method:'POST'});loggedOut();el('message').textContent=wasCookie?'تم الخروج من التطبيق؛ قد تبقى جلسة موفّر الدخول مفتوحة.':'تم تسجيل الخروج.';}catch(error){el('message').textContent=error.message;}});
 
 let currentOperation=null;
 const capabilityLabels={'purchase_orders.read':'قراءة طلبات الشراء','contracts.read':'قراءة شروط العقود المسموحة','procurement.assess':'حساب التأخير والأولوية','findings.verify':'التحقق المستقل من النتائج والأدلة','report.compose':'تجميع التقرير'};
@@ -127,9 +129,9 @@ el('save-document-acl').addEventListener('click',()=>{const doc=currentDocument;
 el('refresh-document').addEventListener('click',()=>{const id=currentDocument.id;documentAction(()=>api(`/v1/documents/${id}`),'جارٍ تحديث المستند…');});
 el('reload-documents').addEventListener('click',()=>loadDocuments().catch(error=>el('message').textContent=error.message));
 el('document-search-form').addEventListener('submit',async event=>{event.preventDefault();const requestToken=token;el('message').textContent='جارٍ البحث في الأدلة المسموحة…';try{const result=await api('/v1/documents/search?q='+encodeURIComponent(el('document-query').value));if(token!==requestToken)return;el('document-search-results').replaceChildren();for(const hit of result.items)el('document-search-results').append(evidenceCard(hit,`${hit.title} · إصدار ${hit.version}`));if(!result.items.length)el('document-search-results').textContent='لا توجد نتائج مسموحة مطابقة.';el('message').textContent=result.corpus_limited?'النتائج من نطاق بحث محدود؛ ضيّق المستندات أو الاستعلام.':'';}catch(error){el('message').textContent=error.message;}});
-el('download-document').addEventListener('click',async()=>{const doc=currentDocument;const requestToken=token;if(!doc)return;try{const response=await fetch(`/v1/documents/${doc.id}/file`,{headers:{Authorization:`Bearer ${token}`}});if(!response.ok){clearDocumentWorkspace();throw new Error('تعذر تحميل المستند؛ تحقق من الصلاحية.');}const blob=await response.blob();if(token!==requestToken)return;const url=URL.createObjectURL(blob);const link=document.createElement('a');link.href=url;link.download=doc.id+'.pdf';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}catch(error){el('message').textContent=error.message;}});
+el('download-document').addEventListener('click',async()=>{const doc=currentDocument;const requestToken=token;if(!doc)return;try{const response=await fetch(`/v1/documents/${doc.id}/file`,{headers:sessionHeaders()});if(!response.ok){clearDocumentWorkspace();throw new Error('تعذر تحميل المستند؛ تحقق من الصلاحية.');}const blob=await response.blob();if(token!==requestToken)return;const url=URL.createObjectURL(blob);const link=document.createElement('a');link.href=url;link.download=doc.id+'.pdf';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}catch(error){el('message').textContent=error.message;}});
 
-el('upload-sample').addEventListener('click',()=>{const sample=el('document-sample').value;const requestToken=token;const metadata={title:el('doc-title').value||'عقد تجريبي',supplier_id:sample==='supplier-s3'?'S3':'S1',contract_ref:el('doc-reference').value.trim()||'SAMPLE-'+crypto.randomUUID(),version:Number(el('doc-version').value),order_ids:[]};el('doc-supplier').value=metadata.supplier_id;el('doc-reference').value=metadata.contract_ref;documentAction(async()=>{const response=await fetch('/v1/document-samples/'+encodeURIComponent(sample),{headers:{Authorization:`Bearer ${requestToken}`}});if(!response.ok)throw new Error('تعذر تحميل العقد التجريبي.');const blob=await response.blob();if(token!==requestToken)throw new Error('الجلسة تغيرت.');const form=new FormData();form.append('metadata',JSON.stringify(metadata));form.append('file',new File([blob],sample+'.pdf',{type:'application/pdf'}));return api('/v1/documents',{method:'POST',body:form});},'جارٍ رفع نسخة PDF تجريبية خاصة بك…');});
+el('upload-sample').addEventListener('click',()=>{const sample=el('document-sample').value;const requestToken=token;const metadata={title:el('doc-title').value||'عقد تجريبي',supplier_id:sample==='supplier-s3'?'S3':'S1',contract_ref:el('doc-reference').value.trim()||'SAMPLE-'+crypto.randomUUID(),version:Number(el('doc-version').value),order_ids:[]};el('doc-supplier').value=metadata.supplier_id;el('doc-reference').value=metadata.contract_ref;documentAction(async()=>{const response=await fetch('/v1/document-samples/'+encodeURIComponent(sample),{headers:sessionHeaders()});if(!response.ok)throw new Error('تعذر تحميل العقد التجريبي.');const blob=await response.blob();if(token!==requestToken)throw new Error('الجلسة تغيرت.');const form=new FormData();form.append('metadata',JSON.stringify(metadata));form.append('file',new File([blob],sample+'.pdf',{type:'application/pdf'}));return api('/v1/documents',{method:'POST',body:form});},'جارٍ رفع نسخة PDF تجريبية خاصة بك…');});
 
 function renderOCRControls(doc){
   const owner=doc.can_manage&&['manager','analyst'].includes(currentIdentity?.role);

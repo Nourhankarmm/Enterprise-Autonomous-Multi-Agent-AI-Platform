@@ -34,10 +34,13 @@ def initialize(path):
                 # Adopt only the exact known Phase 1 create_all bootstrap schema.
                 from alembic.autogenerate import compare_metadata
                 from alembic.migration import MigrationContext
-                from sqlalchemy import MetaData
+                from sqlalchemy import MetaData,Table,Column,String,Float,ForeignKeyConstraint
                 baseline=MetaData()
                 for name in ('tenants','suppliers','projects','purchase_orders','contracts','users','sessions','audit_events'):
-                    metadata.tables[name].to_metadata(baseline)
+                    if name=='sessions':
+                        Table('sessions',baseline,Column('token_hash',String,primary_key=True),Column('user_id',String,nullable=False),
+                            Column('expires_at',Float,nullable=False),ForeignKeyConstraint(['user_id'],['users.id']))
+                    else:metadata.tables[name].to_metadata(baseline)
                 with engine.connect() as connection:
                     differences=compare_metadata(MigrationContext.configure(connection),baseline)
                 if differences:
