@@ -25,6 +25,7 @@ def origin(url):
     return parsed.scheme+'://'+host+((':'+str(port)) if port and port!=({'https':443,'http':80}.get(parsed.scheme)) else '')
 
 def checked_url(url,allow_http=False,origin_only=False):
+    if not isinstance(url,str):raise RuntimeError('Invalid trusted OIDC URL configuration')
     try:
         parsed=urlsplit(url);port=parsed.port
         if (not url or len(url)>2048 or not parsed.hostname or parsed.username or parsed.password or parsed.query or parsed.fragment
@@ -61,7 +62,9 @@ class OIDCConfig:
             if not allow_http:raise RuntimeError('OIDC backchannel override is local-demo only')
             back=checked_url(back,True,True)
             if urlsplit(back).hostname!='keycloak':raise RuntimeError('Local OIDC backchannel must be the Keycloak service')
-        return cls(issuer,client,redirect,allow_http,back,os.getenv('OIDC_REQUIRED_ACR',''),positive_setting('OIDC_AUTH_MAX_AGE_SECONDS',3600))
+        acr=os.getenv('OIDC_REQUIRED_ACR','')
+        if len(acr)>200 or any(c.isspace() for c in acr):raise RuntimeError('OIDC_REQUIRED_ACR must be one exact assurance value')
+        return cls(issuer,client,redirect,allow_http,back,acr,positive_setting('OIDC_AUTH_MAX_AGE_SECONDS',3600))
 
 def csrf_token(session):return token_hash('csrf\0'+session)
 
@@ -94,9 +97,8 @@ class OIDCService:
         for key in ('authorization_endpoint','token_endpoint','jwks_uri'):
             try:self._url(metadata.get(key,''))
             except RuntimeError:raise OIDCError(503) from None
-        if ('code' not in metadata.get('response_types_supported',[]) or
-            'RS256' not in metadata.get('id_token_signing_alg_values_supported',[]) or
-            'S256' not in metadata.get('code_challenge_methods_supported',[])):raise OIDCError(503)
+        for field,required in (('response_types_supported','code'),('id_token_signing_alg_values_supported','RS256'),('code_challenge_methods_supported','S256')):
+            if not isinstance(metadata.get(field),list) or required not in metadata[field]:raise OIDCError(503)
         return metadata
     def begin(self):
         metadata=self.metadata();state=secrets.token_urlsafe(32);browser=secrets.token_urlsafe(32)
@@ -109,6 +111,7 @@ class OIDCService:
                 pkce_verifier=verifier,configuration_hash=self.config.fingerprint,expires_at=self.clock()+300))
         query={'client_id':self.config.client_id,'redirect_uri':self.config.redirect_uri,'response_type':'code','scope':'openid',
             'state':state,'nonce':nonce,'code_challenge':challenge,'code_challenge_method':'S256','max_age':self.config.max_auth_age}
+        if self.config.required_acr:query['acr_values']=self.config.required_acr
         return metadata['authorization_endpoint']+'?'+urlencode(query),browser
     def finish(self,state,browser,code,error=None):
         if not state or not browser or len(state)>200 or len(browser)>200:raise OIDCError()
@@ -166,4 +169,4 @@ class OIDCService:
             if not isinstance(claims['nonce'],str) or not hmac.compare_digest(token_hash(claims['nonce']),nonce_hash):raise ValueError()
             if self.config.required_acr and claims.get('acr')!=self.config.required_acr:raise ValueError()
             return claims
-        except (jwt.PyJWTError,ValueError,KeyError,TypeError,AttributeError):raise OIDCError() from None
+        except (jwt.PyJWTError,ValueError,KeyError,TypeError,AttributeError,OverflowError):raise OIDCError() from None

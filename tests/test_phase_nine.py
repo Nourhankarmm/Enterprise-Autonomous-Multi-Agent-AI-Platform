@@ -103,7 +103,7 @@ class PhaseNineTests(unittest.TestCase):
         now=int(time.time());base=self.claims();nonce_hash=token_hash(base['nonce'])
         bad=[{'nonce':'wrong'},{'iss':'https://other.example.invalid'},{'aud':'other-client'},
             {'aud':['test-client','another-client']},{'azp':'another-client'},{'exp':now-1},{'iat':now+100},
-            {'auth_time':now-7200},{'auth_time':now+100},{'exp':True},{'sub':123}]
+            {'auth_time':now-7200},{'auth_time':now+100},{'exp':True},{'sub':123},{'exp':float('inf')}]
         for changes in bad:
             with self.subTest(changes=changes),self.assertRaises(OIDCError):
                 self.app.state.oidc.validate_token(self.encoded(base|changes),{'keys':[self.jwk]},nonce_hash)
@@ -150,7 +150,8 @@ class PhaseNineTests(unittest.TestCase):
         for value in ('old-local-session',self.encoded()):self.assertEqual(self.client.get('/v1/me',headers={'Authorization':'Bearer '+value}).status_code,401)
     def test_provider_errors_unsafe_discovery_and_outage_never_fall_back_to_password(self):
         self.start();self.assertEqual(self.finish(error='provider-sensitive-error').status_code,401);self.assertEqual(self.token_calls,0)
-        for changes in ({'token_endpoint':'https://attacker.example.invalid/token'},{'issuer':'https://wrong.example.invalid'}, {'code_challenge_methods_supported':['plain']}):
+        for changes in ({'token_endpoint':'https://attacker.example.invalid/token'},{'issuer':'https://wrong.example.invalid'},
+                {'code_challenge_methods_supported':['plain']},{'token_endpoint':[]},{'response_types_supported':None}):
             self.metadata_changes=changes;response=self.client.get('/v1/auth/oidc/start',follow_redirects=False)
             self.assertEqual(response.status_code,503);self.assertNotIn('attacker',response.text)
         self.assertTrue(all(url.startswith(ISSUER) for url in self.requests))
