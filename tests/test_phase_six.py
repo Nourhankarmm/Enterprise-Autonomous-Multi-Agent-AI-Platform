@@ -144,7 +144,7 @@ class PhaseSixTests(unittest.TestCase):
     def test_restricted_mode_is_fail_closed_and_disables_unsafe_configuration(self):
         with patch.dict(os.environ,{'DEPLOYMENT_MODE':'restricted','REQUIRE_HTTPS':'0'}):
             with self.assertRaises(RuntimeError):validate_deployment(self.engine,False)
-        with patch.dict(os.environ,{'DEPLOYMENT_MODE':'restricted','REQUIRE_HTTPS':'1','ALLOWED_HOSTS':'pilot.example.invalid','RATE_LIMIT_ENABLED':'1','ENABLE_DEV_TOKENS':'0'}):
+        with patch.dict(os.environ,{'DEPLOYMENT_MODE':'restricted','REQUIRE_HTTPS':'1','ALLOWED_HOSTS':'pilot.example.invalid','RATE_LIMIT_ENABLED':'1','ENABLE_DEV_TOKENS':'0','AUTH_MODE':'oidc','OIDC_CLIENT_SECRET':'synthetic-test-secret'}):
             postgres=SimpleNamespace(dialect=SimpleNamespace(name='postgresql'))
             self.assertIsNone(validate_deployment(postgres,False))
             with self.assertRaises(RuntimeError):validate_deployment(postgres,True)

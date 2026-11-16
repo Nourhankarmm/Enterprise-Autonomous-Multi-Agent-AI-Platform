@@ -37,6 +37,8 @@ def validate_deployment(engine,injected_tokens):
             'explicit ALLOWED_HOSTS':bool(os.getenv('ALLOWED_HOSTS')),
             'rate limiting enabled':os.getenv('RATE_LIMIT_ENABLED','1')=='1',
             'development tokens disabled':not injected_tokens and os.getenv('ENABLE_DEV_TOKENS')!='1'}
+        requirements['enterprise OIDC enabled']=os.getenv('AUTH_MODE')=='oidc'
+        requirements['OIDC secret configured']=bool(secret_value('OIDC_CLIENT_SECRET'))
         missing=[k for k,v in requirements.items() if not v]
         if missing:raise RuntimeError('Restricted deployment requirements missing: '+', '.join(missing))
 

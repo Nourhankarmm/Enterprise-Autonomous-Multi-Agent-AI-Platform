@@ -332,9 +332,11 @@ class PhaseTwoTests(unittest.TestCase):
         from platform_api.store import initialize
         with tempfile.TemporaryDirectory() as directory:
             path=str(Path(directory)/'existing.db');engine=engine_for(path);baseline=MetaData()
-            for name in ('tenants','suppliers','projects','purchase_orders','contracts','users','sessions','audit_events'):
-                metadata.tables[name].to_metadata(baseline)
-            baseline.create_all(engine);seed(engine)
+            cfg=Config('alembic.ini');cfg.attributes['database_url']=database_url(path)
+            command.upgrade(cfg,'0001')
+            from sqlalchemy import text
+            with engine.begin() as db:db.execute(text('DROP TABLE alembic_version'))
+            seed(engine)
             with engine.begin() as db:
                 db.execute(insert(users).values(id='legacy-user',username='legacy-user',tenant_id='alpha',
                     role='manager',password_hash='existing-hash-preserved',active=True))
@@ -350,8 +352,10 @@ class PhaseTwoTests(unittest.TestCase):
         from platform_api.store import initialize
         with tempfile.TemporaryDirectory() as directory:
             path=str(Path(directory)/'unknown.db');engine=engine_for(path);baseline=MetaData()
-            for name in ('tenants','suppliers','projects','purchase_orders','contracts','users','sessions','audit_events'):
-                metadata.tables[name].to_metadata(baseline)
+            cfg=Config('alembic.ini');cfg.attributes['database_url']=database_url(path)
+            command.upgrade(cfg,'0001')
+            from sqlalchemy import text
+            with engine.begin() as db:db.execute(text('DROP TABLE alembic_version'))
             Table('unknown_customer_data',baseline,Column('id',String,primary_key=True))
             baseline.create_all(engine)
             with self.assertRaisesRegex(RuntimeError,'manual migration required'):initialize(path)

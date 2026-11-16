@@ -153,14 +153,18 @@ Shared database-backed request limits, bounded containers, safe HTTP errors and 
 
 ## Limits
 
-Synthetic local demonstration only. Local auth has no enterprise SSO, MFA, password recovery or identity lifecycle integration. Use loopback for the demo; remote deployment requires HTTPS and identity hardening. Audit records are durable, not tamper-proof. Composite foreign keys and application query scoping are implemented; PostgreSQL RLS is not. The UI is a static Arabic shell served by FastAPI; Next.js is deferred until the operations UI phase. Optional bounded local OCR is available; there is no semantic-vector retrieval, general legal-language extraction, real ERP write, financial action or real email delivery. PDF evidence supports explicit clauses with human review; independent approvals and email dispatch are implemented against the sandbox only. Temporal's development server is not a production deployment.
+Synthetic local demonstration only. The default local auth mode has no enterprise SSO/MFA. Optional OIDC and explicit operator identity/session lifecycle controls are implemented; provider-wide logout, automatic offboarding sync, password recovery and a real organization rollout remain unavailable. Use loopback for the demo; remote deployment requires HTTPS and identity hardening. Audit records are durable, not tamper-proof. Composite foreign keys and application query scoping are implemented; PostgreSQL RLS is not. The UI is a static Arabic shell served by FastAPI; Next.js is deferred until the operations UI phase. Optional bounded local OCR is available; there is no semantic-vector retrieval, general legal-language extraction, real ERP write, financial action or real email delivery. PDF evidence supports explicit clauses with human review; independent approvals and email dispatch are implemented against the sandbox only. Temporal's development server is not a production deployment.
 
 Phase 1 image builds, fresh Compose startup, HTTP acceptance and cleanup passed on GitHub Actions. Phase 2 extends these checks to the reviewed LangGraph pipeline; see the branch/PR checks and Phase 2 review for current evidence. Historical Phase 1 run: https://github.com/Nourhankarmm/Enterprise-Autonomous-Multi-Agent-AI-Platform/actions/runs/43552653640
 
 ## Scanned contract extension
 
-Phase 7 adds explicit local Arabic/English OCR into a new private document version. Compare the derived text with the original PDF before publication. See [OCR setup and limits](docs/PHASE_7_REVIEW.md). Reviewed contract amendments and project delivery exposure are described in [Phase 8](docs/PHASE_8_REVIEW.md); enterprise pilot identity remains the subsequent extension.
+Phase 7 adds explicit local Arabic/English OCR into a new private document version. Compare the derived text with the original PDF before publication. See [OCR setup and limits](docs/PHASE_7_REVIEW.md). Reviewed contract amendments and project delivery exposure are described in [Phase 8](docs/PHASE_8_REVIEW.md); optional OIDC/Keycloak pilot preparation is described in [Phase 9](docs/PHASE_9_REVIEW.md), with actual company rollout still pending.
 
 ## Reviewed amendments and project exposure
 
 Phase 8 separates amendment-text review from independent signed-copy attestation, applies approved dates only to the scoped order, and preserves the original ERP date. Project exposure groups cited purchase-order findings while inventory shortage and project schedule delay remain unknown. See [review and limits](docs/PHASE_8_REVIEW.md). Migration 0008 is required.
+
+## Enterprise identity preparation
+
+Optional OIDC uses explicit issuer/subject mappings and protected browser sessions; provider claims do not choose company or role. The synthetic local Keycloak launcher is `python scripts/run_identity_demo.py` (Docker and locked test extras required). See [setup, security boundaries and pilot blockers](docs/PHASE_9_REVIEW.md). Actual company identity and production infrastructure remain unconfigured.

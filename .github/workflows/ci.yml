@@ -66,6 +66,7 @@ jobs:
       - run: node --check web/workflows.js
       - run: node --check web/dashboard.js
       - run: node --check web/phase-eight.js
+      - run: node --check web/enterprise-login.js
       - run: python -m unittest discover -s tests -p test_phase_four.py -v
         env:
           TEST_DATABASE_URL: postgresql+psycopg://platform:ci-only-password@localhost:5432/platform_test
@@ -79,6 +80,9 @@ jobs:
         env:
           TEST_DATABASE_URL: postgresql+psycopg://platform:ci-only-password@localhost:5432/platform_test
       - run: python -m unittest discover -s tests -p test_phase_eight.py -v
+        env:
+          TEST_DATABASE_URL: postgresql+psycopg://platform:ci-only-password@localhost:5432/platform_test
+      - run: python -m unittest discover -s tests -p test_phase_nine.py -v
         env:
           TEST_DATABASE_URL: postgresql+psycopg://platform:ci-only-password@localhost:5432/platform_test
       - name: Frozen synthetic evaluation
@@ -104,6 +108,24 @@ jobs:
           docker compose exec -T api python -c "from pathlib import Path; import sys; sys.stdout.buffer.write(Path('/tmp/temporal-recovery.json').read_bytes())" > .data/phase6-temporal-recovery.json
       - name: Verify disposable backup restore
         run: python scripts/verify_compose_restore.py
+      - name: Prepare disposable identity-provider secret
+        run: |
+          python - <<'PY'
+          import os,secrets
+          value=secrets.token_urlsafe(32)
+          print('::add-mask::'+value)
+          with open(os.environ['GITHUB_ENV'],'a') as stream:stream.write('KEYCLOAK_ADMIN_PASSWORD='+value+'\n')
+          PY
+      - name: Start optional local Keycloak identity demo
+        run: docker compose -f compose.yaml -f compose.oidc.yaml up -d --wait --wait-timeout 240
+      - name: Verify actual authorization-code identity integration
+        run: python scripts/oidc_smoke.py --disposable
+      - name: Record explicit pilot configuration blockers
+        run: |
+          docker compose -f compose.yaml -f compose.oidc.yaml exec -T api python -m platform_api.pilot --allow-demo --output /tmp/phase9-readiness.json
+          docker compose -f compose.yaml -f compose.oidc.yaml exec -T api python -c "from pathlib import Path; import sys; sys.stdout.buffer.write(Path('/tmp/phase9-readiness.json').read_bytes())" > .data/phase9-readiness.json
+      - name: Verify backup restore including external identity mappings
+        run: python scripts/verify_compose_restore.py
       - name: Publish evaluation artifacts
         if: always()
         uses: actions/upload-artifact@v4
@@ -113,11 +135,16 @@ jobs:
             .data/phase6-*.json
             .data/phase7-*.json
             .data/phase8-*.json
+            .data/phase9-*.json
           if-no-files-found: error
           include-hidden-files: true
       - name: Collect container logs
         if: always()
-        run: docker compose logs --no-color
+        env:
+          KEYCLOAK_ADMIN_PASSWORD: cleanup-only-placeholder
+        run: docker compose -f compose.yaml -f compose.oidc.yaml logs --no-color
       - name: Remove disposable CI stack
         if: always()
-        run: docker compose down --volumes --remove-orphans
+        env:
+          KEYCLOAK_ADMIN_PASSWORD: cleanup-only-placeholder
+        run: docker compose -f compose.yaml -f compose.oidc.yaml down --volumes --remove-orphans

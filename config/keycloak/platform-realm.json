@@ -1,0 +1,39 @@
+{
+  "realm": "platform",
+  "enabled": true,
+  "registrationAllowed": false,
+  "resetPasswordAllowed": false,
+  "rememberMe": false,
+  "sslRequired": "none",
+  "loginWithEmailAllowed": false,
+  "accessTokenLifespan": 300,
+  "ssoSessionIdleTimeout": 1800,
+  "clients": [{
+    "clientId": "platform-demo",
+    "name": "Loopback-only synthetic platform demo",
+    "enabled": true,
+    "protocol": "openid-connect",
+    "publicClient": true,
+    "standardFlowEnabled": true,
+    "implicitFlowEnabled": false,
+    "directAccessGrantsEnabled": false,
+    "serviceAccountsEnabled": false,
+    "redirectUris": [
+      "http://127.0.0.1:8000/v1/auth/oidc/callback",
+      "http://127.0.0.1:18000/v1/auth/oidc/callback"
+    ],
+    "webOrigins": [],
+    "attributes": {"pkce.code.challenge.method": "S256"},
+    "protocolMappers": [{
+      "name": "synthetic-untrusted-tenant",
+      "protocol": "openid-connect",
+      "protocolMapper": "oidc-hardcoded-claim-mapper",
+      "config": {"claim.name": "tenant_id", "claim.value": "beta", "jsonType.label": "String", "id.token.claim": "true"}
+    }, {
+      "name": "synthetic-untrusted-role",
+      "protocol": "openid-connect",
+      "protocolMapper": "oidc-hardcoded-claim-mapper",
+      "config": {"claim.name": "role", "claim.value": "super-admin", "jsonType.label": "String", "id.token.claim": "true"}
+    }]
+  }]
+}

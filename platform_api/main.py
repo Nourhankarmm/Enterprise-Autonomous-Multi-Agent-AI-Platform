@@ -9,14 +9,17 @@ from fastapi import Depends, FastAPI, HTTPException, Response, Request
 from fastapi.responses import FileResponse,JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from fastapi.exceptions import RequestValidationError
+from fastapi.exception_handlers import request_validation_exception_handler
 from pydantic import BaseModel, Field
 from sqlalchemy import insert, select, delete
 from .domain import assess_order
 from .store import MockERP, initialize
-from .database import engine_for, audit_events, sessions, document_families,rate_windows,documents,amendment_proposals,active_amendments
+from .database import engine_for, audit_events, sessions, document_families,rate_windows,documents,amendment_proposals,active_amendments,oidc_identities,oidc_flows
 from .security import (DatabaseRateLimiter,HardeningMiddleware,RateLimited,LimiterUnavailable,
     positive_setting,validate_deployment,response_headers)
 from .auth import login, resolve_session, token_hash
+from .oidc import OIDCConfig,SESSION_COOKIE,csrf_token,origin
 
 class Identity(BaseModel):
     tenant_id: str
@@ -31,6 +34,11 @@ class LoginRequest(BaseModel):
 def create_app(db_path: str | None = None, tokens: dict[str, Identity] | None = None, planner=None) -> FastAPI:
     path = db_path or os.getenv('DATABASE_URL') or os.getenv('DATABASE_PATH', '.data/phase1.db')
     injected_tokens=tokens is not None
+    auth_mode=os.getenv('AUTH_MODE','local')
+    if auth_mode not in {'local','oidc'}:raise RuntimeError('AUTH_MODE must be local or oidc')
+    oidc_config=OIDCConfig.from_environment() if auth_mode=='oidc' else None
+    if oidc_config and (injected_tokens or os.getenv('ENABLE_DEV_TOKENS')=='1'):
+        raise RuntimeError('OIDC mode forbids development identity injection')
     # Legacy development tokens are opt-in; explicit test injection remains supported.
     if tokens is None:
         tokens = {}
@@ -64,6 +72,9 @@ def create_app(db_path: str | None = None, tokens: dict[str, Identity] | None = 
             db.execute(select(documents.c.kind).limit(1))
             db.execute(select(amendment_proposals.c.id).limit(1))
             db.execute(select(active_amendments.c.amendment_id).limit(1))
+            db.execute(select(oidc_identities.c.id).limit(1))
+            db.execute(select(oidc_flows.c.state_hash).limit(1))
+            db.execute(select(sessions.c.auth_method).limit(1))
         yield
         engine.dispose()
 
@@ -73,6 +84,12 @@ def create_app(db_path: str | None = None, tokens: dict[str, Identity] | None = 
         openapi_url=None if os.getenv('DEPLOYMENT_MODE')=='restricted' else '/openapi.json')
     app.state.rate_limiter=limiter
     bearer = HTTPBearer(auto_error=False)
+
+    @app.exception_handler(RequestValidationError)
+    async def safe_auth_validation(request,error):
+        if request.url.path.startswith('/v1/auth/'):
+            return JSONResponse(status_code=422,content={'detail':'Invalid authentication request'})
+        return await request_validation_exception_handler(request,error)
 
     @app.exception_handler(RateLimited)
     async def limited(request,error):
@@ -93,13 +110,23 @@ def create_app(db_path: str | None = None, tokens: dict[str, Identity] | None = 
                 occurred_at=datetime.now(timezone.utc).isoformat(), details=details or {}))
 
     def identity(request:Request,credentials: HTTPAuthorizationCredentials | None = Depends(bearer)) -> Identity:
+        if not credentials and oidc_config:
+            cookie=request.cookies.get(SESSION_COOKIE,'')
+            if cookie and len(cookie)<=200:
+                if request.method not in {'GET','HEAD','OPTIONS'}:
+                    claimed=request.headers.get('X-CSRF-Token','')
+                    supplied_origin=request.headers.get('Origin')
+                    if (len(claimed)>200 or not hmac.compare_digest(claimed,csrf_token(cookie)) or
+                            (supplied_origin is not None and supplied_origin!=origin(oidc_config.redirect_uri))):
+                        raise HTTPException(403,'Same-origin session confirmation required')
+                credentials=HTTPAuthorizationCredentials(scheme='Bearer',credentials=cookie)
         if credentials:
             digest = hashlib.sha256(credentials.credentials.encode()).digest()
             for candidate, actor in token_map.items():
                 if hmac.compare_digest(digest, candidate):
                     if rate_enabled:limiter.consume('user',actor.tenant_id+'/'+actor.subject,user_limit)
                     return actor
-            user = resolve_session(engine, credentials.credentials)
+            user = resolve_session(engine, credentials.credentials,auth_mode)
             if user:
                 if rate_enabled:limiter.consume('user',user['tenant_id']+'/'+user['id'],user_limit)
                 return Identity(tenant_id=user['tenant_id'], role=user['role'], subject=user['id'])
@@ -123,10 +150,11 @@ def create_app(db_path: str | None = None, tokens: dict[str, Identity] | None = 
             db.execute(select(audit_events.c.id).limit(1))
             db.execute(select(document_families.c.tenant_id).limit(1))
             db.execute(select(amendment_proposals.c.id).limit(1))
-        return {'status': 'ok', 'mode': 'synthetic', 'database': engine.dialect.name, 'auth': 'local-stub'}
+        return {'status': 'ok', 'mode': 'synthetic', 'database': engine.dialect.name, 'auth': 'oidc' if oidc_config else 'local-stub'}
 
     @app.post('/v1/auth/login')
     def sign_in(body: LoginRequest,request:Request):
+        if oidc_config:raise HTTPException(403,'Local password login is disabled')
         if rate_enabled:
             limiter.consume('login_peer',request.client.host if request.client else 'unknown',login_peer_limit,login_window)
             limiter.consume('login_account',body.username.casefold(),login_account_limit,login_window)
@@ -139,11 +167,17 @@ def create_app(db_path: str | None = None, tokens: dict[str, Identity] | None = 
         return {'access_token': token, 'token_type': 'bearer', 'expires_in': 3600, 'identity': actor}
 
     @app.post('/v1/auth/logout', status_code=204)
-    def sign_out(actor: Identity = Depends(identity), credentials=Depends(bearer)):
+    def sign_out(request:Request,actor: Identity = Depends(identity), credentials=Depends(bearer)):
+        session_token=credentials.credentials if credentials else request.cookies.get(SESSION_COOKIE,'')
         with engine.begin() as db:
-            db.execute(delete(sessions).where(sessions.c.token_hash == token_hash(credentials.credentials)))
+            db.execute(delete(sessions).where(sessions.c.token_hash == token_hash(session_token)))
         record(actor, 'session.revoked', 'session')
-        return Response(status_code=204)
+        response=Response(status_code=204)
+        if oidc_config:response.delete_cookie(SESSION_COOKIE,path='/',httponly=True,secure=oidc_config.secure_cookie,samesite='lax')
+        return response
+
+    from .oidc_routes import register as register_oidc
+    register_oidc(app,engine,identity,oidc_config,limiter,rate_enabled,login_peer_limit,login_window)
 
     @app.get('/v1/me')
     def me(actor: Identity = Depends(identity)):
